@@ -23,9 +23,11 @@ func init() {
 }
 
 var (
-	help    bool
-	verbose bool
-	debug   bool // currently unused
+	version     = "unknown"
+	versionFlag bool
+	help        bool
+	verbose     bool
+	debug       bool // currently unused
 
 	withTaskfile bool
 	withMakefile bool
@@ -44,6 +46,7 @@ Options:
   -gm, --module 	go module name
   -v, --verbose 	prints detailed logs
   -h, --help		prints this help message
+  --version			prints the version
 `
 )
 
@@ -53,6 +56,8 @@ func main() {
 
 	flag.BoolVar(&verbose, "verbose", false, "prints detailed logs")
 	flag.BoolVar(&verbose, "v", false, "prints detailed logs")
+
+	flag.BoolVar(&versionFlag, "version", false, "prints the version")
 
 	flag.BoolVar(&withTaskfile, "taskfile", false, "init project with a Taskfile")
 	flag.BoolVar(&withTaskfile, "t", false, "init project with a Taskfile")
@@ -72,10 +77,16 @@ func main() {
 		os.Exit(0)
 	}
 
+	if versionFlag {
+		fmt.Println(version)
+		os.Exit(0)
+	}
+
 	projectName = flag.Arg(0)
 
 	if err := run(); err != nil {
 		logErr("%v", err)
+		flag.Usage()
 		os.Exit(1)
 	}
 }
