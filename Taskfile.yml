@@ -12,6 +12,7 @@ tasks:
 
   build:
     cmds:
+      - goreleaser release --snapshot --clean
       - go mod verify >/dev/null
       - go build -ldflags='-s' -o bin/{{.BINARY}} .
 
