@@ -1,0 +1,39 @@
+version: '3'
+
+silent: true
+vars:
+  BINARY: goinit
+
+tasks:
+  test:
+    cmds:
+      - task: verify
+      - go test --cover ./...
+
+  build:
+    cmds:
+      - go mod verify >/dev/null
+      - go build -ldflags='-s' -o bin/{{.BINARY}} .
+
+  run:
+    cmds:
+      - task: clean
+      - task: build
+      - ./bin/{{.BINARY}} {{.CLI_ARGS}}
+
+  verify:
+    cmds:
+      - go mod verify
+      - goreleaser check
+
+  clean:
+    cmds:
+      - rm -rf bin
+      - rm -rf test
+      - rm -rf dist
+
+  install:
+    cmds:
+      - task: clean
+      - task: build
+      - cp bin/{{.BINARY}} /$HOME/go/bin/{{.BINARY}}
