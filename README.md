@@ -45,7 +45,7 @@ $ goinit --taskfile my-new-project
 Sets the module name
 
 ```bash
-$ goinit -m my-new-project
+$ goinit -gm my-new-project
 # or
 $ goinit --module github.com/alexjoedt/goinit my-new-project
 ```
