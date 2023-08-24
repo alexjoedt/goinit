@@ -1,38 +1,5 @@
 package main
 
-// taskfile Taskfile template
-const taskfile = `version: '3'
-
-vars:
-  BINARY: [[.ProjectName]]
-
-tasks:
-  tidy:
-    cmds:
-      - go fmt ./...
-      - go mod tidy
-
-  test:
-    cmds:
-      - go test --cover ./...
-      - go mod verify
-
-  build:
-    cmds:
-      - go mod verify
-      - go build -o bin/{{.BINARY}} .
-
-  run:
-    cmds:
-      - task: build
-      - ./bin/{{.BINARY}}
-
-  clean:
-    cmds:
-      - rm -rf bin
-
-`
-
 // makefile Makefile template
 const makefile = `## help: print this help message
 .PHONY: help

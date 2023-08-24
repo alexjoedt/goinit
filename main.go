@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"embed"
 	"errors"
 	"flag"
 	"fmt"
@@ -91,6 +92,12 @@ func main() {
 	}
 }
 
+// Templates
+var (
+	//go:embed templates
+	tplFiles embed.FS
+)
+
 // run creates the go project directory
 func run() error {
 
@@ -103,6 +110,7 @@ func run() error {
 	if projectName == "" {
 		return errors.New("no project name specified")
 	}
+	projectName = filepath.Base(projectName)
 
 	targetDir = filepath.Join(wd, projectName)
 	if _, err := os.Stat(targetDir); !os.IsNotExist(err) {
@@ -159,7 +167,7 @@ func run() error {
 
 		logInfo("Create Taskfile.yml")
 		if err := createTaskfile(); err != nil {
-			logWarn("create Taskfile.yml failed")
+			logWarn("create Taskfile.yml failed: %v", err)
 		}
 	}
 
@@ -191,13 +199,18 @@ func initGoMod() error {
 }
 
 func createTaskfile() error {
-	t, err := template.New("taskfile").Delims("[[", "]]").Parse(taskfile)
+	tf, err := tplFiles.ReadFile("templates/Taskfile.yml")
+	if err != nil {
+		return err
+	}
+
+	tpl, err := template.New("taskfile").Delims("[[", "]]").Parse(string(tf))
 	if err != nil {
 		return err
 	}
 
 	buf := &bytes.Buffer{}
-	err = t.Execute(buf, struct{ ProjectName string }{projectName})
+	err = tpl.Execute(buf, struct{ ProjectName string }{projectName})
 	if err != nil {
 		return err
 	}
