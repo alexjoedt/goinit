@@ -30,8 +30,9 @@ var (
 	verbose     bool
 	debug       bool // currently unused
 
-	withTaskfile bool
-	withMakefile bool
+	withTaskfile   bool
+	withMakefile   bool
+	withDockerfile bool
 
 	targetDir   string
 	projectName string
@@ -44,6 +45,7 @@ const (
 Options:
   -t, --taskfile	init project with a Taskfile
   -m, --makefile 	init project with a Makefile
+  -d, --dockerfile 	init project with a Dockerfile
   -gm, --module 	go module name
   -v, --verbose 	prints detailed logs
   -h, --help		prints this help message
@@ -65,6 +67,9 @@ func main() {
 
 	flag.BoolVar(&withMakefile, "makefile", false, "init project with a Makefile")
 	flag.BoolVar(&withMakefile, "m", false, "init project with a Makefile")
+
+	flag.BoolVar(&withDockerfile, "dockerfile", false, "init project with a Dockerfile")
+	flag.BoolVar(&withDockerfile, "d", false, "init project with a Dockerfile")
 
 	flag.StringVar(&moduleName, "module", projectName, "sets the go module name (default: project-name)")
 	flag.StringVar(&moduleName, "gm", projectName, "sets the go module name (default: project-name)")
@@ -182,6 +187,17 @@ func run() error {
 		}
 	}
 
+	if withDockerfile {
+		if !binExists("docker") {
+			logWarn("docker binary is not exit on this system")
+		}
+
+		logInfo("Create Dockerfile")
+		if err := createDockerfile(); err != nil {
+			logWarn("create Dockerfile failed")
+		}
+	}
+
 	return nil
 }
 
@@ -222,6 +238,32 @@ func createTaskfile() error {
 	}
 
 	return writeStringToFile(taskfilePath, buf.String())
+}
+
+func createDockerfile() error {
+	df, err := tplFiles.ReadFile("templates/Dockerfile")
+	if err != nil {
+		return err
+	}
+
+	tpl, err := template.New("dockerfile").Parse(string(df))
+	if err != nil {
+		return err
+	}
+
+	buf := &bytes.Buffer{}
+	err = tpl.Execute(buf, struct{ ProjectName string }{projectName})
+	if err != nil {
+		return err
+	}
+
+	dockerfilePath := filepath.Join(targetDir, "Dockerfile")
+	_, err = os.Stat(dockerfilePath)
+	if !os.IsNotExist(err) {
+		return err
+	}
+
+	return writeStringToFile(dockerfilePath, buf.String())
 }
 
 func createMakefile() error {

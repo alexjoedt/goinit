@@ -54,4 +54,4 @@ $ goinit --module github.com/alexjoedt/goinit my-new-project
 - [x] Set the module name
 - [x] Create project with a Makefile
 - [x] Create project with a Taskfile
-- [ ] Create project with a Dockerfile
+- [x] Create project with a Dockerfile
