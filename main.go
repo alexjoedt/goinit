@@ -43,13 +43,13 @@ const (
 	usage = `Usage: goinit [OPTIONS] <project-name>
 
 Options:
-  -t, --taskfile	init project with a Taskfile
-  -m, --makefile 	init project with a Makefile
+  -t, --taskfile		init project with a Taskfile
+  -m, --makefile 		init project with a Makefile
   -d, --dockerfile 	init project with a Dockerfile
-  -gm, --module 	go module name
-  -v, --verbose 	prints detailed logs
-  -h, --help		prints this help message
-  --version			prints the version
+  -gm, --module 		go module name
+  -v, --verbose 		prints detailed logs
+  -h, --help				prints this help message
+  --version					prints the version
 `
 )
 
