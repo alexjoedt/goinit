@@ -41,7 +41,6 @@ func setupGlobalVars(t *testing.T) func() {
 	origWithTaskfile := withTaskfile
 	origWithDockerfile := withDockerfile
 	origVerbose := verbose
-	origDebug := debug
 	
 	return func() {
 		// Restore original values
@@ -51,7 +50,6 @@ func setupGlobalVars(t *testing.T) func() {
 		withTaskfile = origWithTaskfile
 		withDockerfile = origWithDockerfile
 		verbose = origVerbose
-		debug = origDebug
 	}
 }
 

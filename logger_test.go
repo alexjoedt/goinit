@@ -1,57 +1,76 @@
 package main
 
 import (
-	"bytes"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestLogInfo(t *testing.T) {
+func TestInfo(t *testing.T) {
+	// Test that info shows output when verbose is true
 	verbose = true
 	defer func() {
 		verbose = false
-		infoLog.SetOutput(os.Stdout)
 	}()
-	buf := new(bytes.Buffer)
-	infoLog.SetOutput(buf)
-
-	logInfo("test-log")
-	assert.Contains(t, buf.String(), "INFO")
-	assert.Contains(t, buf.String(), "test-log")
-}
-
-func TestLogDebug(t *testing.T) {
-	debug = true
+	
+	// Capture stderr
+	origStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
 	defer func() {
-		debug = false
-		debugLog.SetOutput(os.Stdout)
+		os.Stderr = origStderr
 	}()
-	buf := new(bytes.Buffer)
-	debugLog.SetOutput(buf)
 
-	logDebug("test-log")
-	assert.Contains(t, buf.String(), "DEBUG")
-	assert.Contains(t, buf.String(), "test-log")
+	info("test message")
+	
+	w.Close()
+	buf := make([]byte, 1024)
+	n, _ := r.Read(buf)
+	output := string(buf[:n])
+	
+	assert.Contains(t, output, "test message")
+	assert.Contains(t, output, "•")
 }
 
-func TestLogWarn(t *testing.T) {
-	buf := new(bytes.Buffer)
-	warnLog.SetOutput(buf)
-	defer warnLog.SetOutput(os.Stdout)
+func TestInfoVerboseOff(t *testing.T) {
+	// Test that info shows no output when verbose is false
+	verbose = false
+	
+	// Capture stderr
+	origStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+	defer func() {
+		os.Stderr = origStderr
+	}()
 
-	logWarn("test-log")
-	assert.Contains(t, buf.String(), "WARN")
-	assert.Contains(t, buf.String(), "test-log")
+	info("test message")
+	
+	w.Close()
+	buf := make([]byte, 1024)
+	n, _ := r.Read(buf)
+	output := string(buf[:n])
+	
+	assert.Empty(t, output)
 }
 
-func TestLogError(t *testing.T) {
-	buf := new(bytes.Buffer)
-	errorLog.SetOutput(buf)
-	defer errorLog.SetOutput(os.Stderr)
+func TestWarn(t *testing.T) {
+	// Capture stderr
+	origStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+	defer func() {
+		os.Stderr = origStderr
+	}()
 
-	logErr("test-log")
-	assert.Contains(t, buf.String(), "ERROR")
-	assert.Contains(t, buf.String(), "test-log")
+	warn("test warning")
+	
+	w.Close()
+	buf := make([]byte, 1024)
+	n, _ := r.Read(buf)
+	output := string(buf[:n])
+	
+	assert.Contains(t, output, "Warning:")
+	assert.Contains(t, output, "test warning")
 }

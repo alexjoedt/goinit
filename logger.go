@@ -1,59 +1,24 @@
 package main
 
 import (
-	"log"
+	"fmt"
 	"os"
-	"runtime"
 )
 
-var (
-	infoLog  *log.Logger
-	debugLog *log.Logger
-	warnLog  *log.Logger
-	errorLog *log.Logger
-)
-
-var resetColor = "\033[0m"
-var red = "\033[31m"
-var green = "\033[32m"
-var yellow = "\033[33m"
-var cyan = "\033[36m"
-
-func init() {
-	infoLog = log.New(os.Stdout, setColor(green, "INFO "), log.Ldate|log.Ltime|log.Lmsgprefix)
-	debugLog = log.New(os.Stdout, setColor(cyan, "DEBUG "), log.Ldate|log.Ltime|log.Lmsgprefix)
-	warnLog = log.New(os.Stdout, setColor(yellow, "WARN "), log.Ldate|log.Ltime|log.Lmsgprefix)
-	errorLog = log.New(os.Stderr, setColor(red, "ERROR "), log.Ldate|log.Ltime|log.Lmsgprefix)
-
-	if runtime.GOOS == "windows" {
-		resetColor = ""
-		red = ""
-		green = ""
-		yellow = ""
-		cyan = ""
-	}
-}
-
-func logInfo(format string, args ...interface{}) {
+// info prints informational messages only when verbose mode is enabled
+func info(format string, args ...interface{}) {
 	if verbose {
-		infoLog.Printf(format, args...)
+		fmt.Fprintf(os.Stderr, "• "+format+"\n", args...)
 	}
 }
 
-func logDebug(format string, args ...interface{}) {
-	if debug {
-		debugLog.Printf(format, args...)
-	}
+// warn prints warning messages to stderr - always shown
+func warn(format string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, "Warning: "+format+"\n", args...)
 }
 
-func logWarn(format string, args ...interface{}) {
-	warnLog.Printf(format, args...)
-}
-
-func logErr(format string, args ...interface{}) {
-	errorLog.Printf(format, args...)
-}
-
-func setColor(color string, format string) string {
-	return color + format + resetColor
+// fatal prints error message to stderr and exits with code 1
+func fatal(format string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, "Error: "+format+"\n", args...)
+	os.Exit(1)
 }
