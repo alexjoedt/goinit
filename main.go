@@ -267,7 +267,12 @@ func createDockerfile() error {
 }
 
 func createMakefile() error {
-	t, err := template.New("makefile").Parse(makefile)
+	mf, err := tplFiles.ReadFile("templates/Makefile")
+	if err != nil {
+		return err
+	}
+
+	t, err := template.New("makefile").Parse(string(mf))
 	if err != nil {
 		return err
 	}
@@ -288,13 +293,21 @@ func createMakefile() error {
 }
 
 func createReadme() error {
-	t, err := template.New("readme").Parse(readme)
+	rd, err := tplFiles.ReadFile("templates/README.md")
+	if err != nil {
+		return err
+	}
+
+	t, err := template.New("readme").Parse(string(rd))
 	if err != nil {
 		return err
 	}
 
 	buf := &bytes.Buffer{}
-	t.Execute(buf, struct{ ProjectName string }{projectName})
+	err = t.Execute(buf, struct{ ProjectName string }{projectName})
+	if err != nil {
+		return err
+	}
 
 	readmePath := filepath.Join(targetDir, "README.md")
 	_, err = os.Stat(readmePath)
@@ -306,17 +319,30 @@ func createReadme() error {
 }
 
 func createGitignore() error {
+	gi, err := tplFiles.ReadFile("templates/gitignore")
+	if err != nil {
+		return fmt.Errorf("failed to read gitignore template: %w", err)
+	}
+
 	gitignorePath := filepath.Join(targetDir, ".gitignore")
-	_, err := os.Stat(gitignorePath)
-	if !os.IsNotExist(err) {
+	if _, err := os.Stat(gitignorePath); !os.IsNotExist(err) {
 		return err
 	}
 
-	return writeStringToFile(gitignorePath, gitignore)
+	if err := writeStringToFile(gitignorePath, string(gi)); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func createMainDotGo() error {
-	t, err := template.New("main.go").Parse(mainGoFile)
+	mg, err := tplFiles.ReadFile("templates/main.go")
+	if err != nil {
+		return err
+	}
+
+	t, err := template.New("main.go").Parse(string(mg))
 	if err != nil {
 		return err
 	}
