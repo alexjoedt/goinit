@@ -15,11 +15,11 @@ import (
 
 func init() {
 	if !binExists("git") {
-		log.Fatal("git not found")
+		log.Fatal("git command not found in PATH. Please install Git: https://git-scm.com/downloads")
 	}
 
 	if !binExists("go") {
-		log.Fatal("go not found")
+		log.Fatal("go command not found in PATH. Please install Go: https://golang.org/doc/install")
 	}
 }
 
@@ -91,7 +91,7 @@ func main() {
 	projectName = flag.Arg(0)
 
 	if err := run(); err != nil {
-		logErr("%v", err)
+		logErr("Failed to create project: %v", err)
 		flag.Usage()
 		os.Exit(1)
 	}
@@ -108,93 +108,85 @@ func run() error {
 
 	wd, err := os.Getwd()
 	if err != nil {
-		logErr("get current dir failed")
-		return err
+		return fmt.Errorf("failed to get current working directory: %w", err)
 	}
 
 	if projectName == "" {
-		return errors.New("no project name specified")
+		return errors.New("project name is required. Usage: goinit [OPTIONS] <project-name>")
 	}
 	projectName = filepath.Base(projectName)
 
 	targetDir = filepath.Join(wd, projectName)
 	if _, err := os.Stat(targetDir); !os.IsNotExist(err) {
-		logErr("target dir %s already exist", targetDir)
-		return err
+		return fmt.Errorf("target directory '%s' already exists. Please choose a different project name or remove the existing directory", targetDir)
 	}
 
 	logInfo("Creating project in %s\n", targetDir)
 
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
-		logErr("create target dir %s failed", targetDir)
-		return err
+		return fmt.Errorf("failed to create project directory '%s': %w", targetDir, err)
 	}
 
 	// Init Go Module
 	logInfo("Init Go Module")
 	if err := initGoMod(); err != nil {
-		logErr("init go mod failed")
-		return err
+		return fmt.Errorf("failed to initialize Go module: %w", err)
 	}
 
 	// Init Git Repo
 	logInfo("Init Git Repo")
 	if err := initGitRepo(); err != nil {
-		logErr("init git repo failed")
-		return err
+		return fmt.Errorf("failed to initialize Git repository: %w", err)
 	}
 
 	// Create .gitignore
 	logInfo("Create .gitignore")
 	if err := createGitignore(); err != nil {
-		logErr("create .gitignore failed")
-		return err
+		return fmt.Errorf("failed to create .gitignore file: %w", err)
 	}
 
 	// Create README.md
 	logInfo("Create README.md")
 	if err := createReadme(); err != nil {
-		logErr("create README.md failed")
-		return err
+		return fmt.Errorf("failed to create README.md file: %w", err)
 	}
 
 	// Create main.go
 	logInfo("Create main.go")
 	if err := createMainDotGo(); err != nil {
-		logErr("create main.go failed")
-		return err
+		return fmt.Errorf("failed to create main.go file: %w", err)
 	}
 
 	if withTaskfile {
 		if !binExists("task") {
-			logWarn("task binary is not exit on this system")
+			logWarn("task binary not found in PATH. You can install it from: https://taskfile.dev/installation/")
 		}
 
 		logInfo("Create Taskfile.yml")
 		if err := createTaskfile(); err != nil {
-			logWarn("create Taskfile.yml failed: %v", err)
+			logWarn("failed to create Taskfile.yml: %v", err)
 		}
 	}
 
 	if withMakefile {
 		if !binExists("make") {
-			logWarn("make binary is not exit on this system")
+			logWarn("make binary not found in PATH. You may need to install build tools for your system")
 		}
 
 		logInfo("Create Makefile")
 		if err := createMakefile(); err != nil {
-			logWarn("create Makefile failed")
+			logWarn("failed to create Makefile: %v", err)
 		}
 	}
 
 	if withDockerfile {
 		if !binExists("docker") {
-			logWarn("docker binary is not exit on this system")
+			logWarn("docker binary not found in PATH. You can install it from: https://docs.docker.com/get-docker/")
 		}
 
 		logInfo("Create Dockerfile")
 		if err := createDockerfile(); err != nil {
-			logWarn("create Dockerfile failed")
+			logWarn("failed to create Dockerfile: %v", err)
 		}
 	}
 
@@ -217,105 +209,117 @@ func initGoMod() error {
 func createTaskfile() error {
 	tf, err := tplFiles.ReadFile("templates/Taskfile.yml")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read Taskfile.yml template: %w", err)
 	}
 
 	tpl, err := template.New("taskfile").Delims("[[", "]]").Parse(string(tf))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to parse Taskfile.yml template: %w", err)
 	}
 
 	buf := &bytes.Buffer{}
 	err = tpl.Execute(buf, struct{ ProjectName string }{projectName})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to execute Taskfile.yml template: %w", err)
 	}
 
 	taskfilePath := filepath.Join(targetDir, "Taskfile.yml")
-	_, err = os.Stat(taskfilePath)
-	if !os.IsNotExist(err) {
-		return err
+	if _, err = os.Stat(taskfilePath); !os.IsNotExist(err) {
+		return fmt.Errorf("taskfile.yml already exists at '%s'", taskfilePath)
 	}
 
-	return writeStringToFile(taskfilePath, buf.String())
+	if err := writeStringToFile(taskfilePath, buf.String()); err != nil {
+		return fmt.Errorf("failed to write Taskfile.yml: %w", err)
+	}
+
+	return nil
 }
 
 func createDockerfile() error {
 	df, err := tplFiles.ReadFile("templates/Dockerfile")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read Dockerfile template: %w", err)
 	}
 
 	tpl, err := template.New("dockerfile").Parse(string(df))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to parse Dockerfile template: %w", err)
 	}
 
 	buf := &bytes.Buffer{}
 	err = tpl.Execute(buf, struct{ ProjectName string }{projectName})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to execute Dockerfile template: %w", err)
 	}
 
 	dockerfilePath := filepath.Join(targetDir, "Dockerfile")
-	_, err = os.Stat(dockerfilePath)
-	if !os.IsNotExist(err) {
-		return err
+	if _, err = os.Stat(dockerfilePath); !os.IsNotExist(err) {
+		return fmt.Errorf("dockerfile already exists at '%s'", dockerfilePath)
 	}
 
-	return writeStringToFile(dockerfilePath, buf.String())
+	if err := writeStringToFile(dockerfilePath, buf.String()); err != nil {
+		return fmt.Errorf("failed to write Dockerfile: %w", err)
+	}
+
+	return nil
 }
 
 func createMakefile() error {
 	mf, err := tplFiles.ReadFile("templates/Makefile")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read Makefile template: %w", err)
 	}
 
 	t, err := template.New("makefile").Parse(string(mf))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to parse Makefile template: %w", err)
 	}
 
 	buf := &bytes.Buffer{}
 	err = t.Execute(buf, struct{ ProjectName string }{projectName})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to execute Makefile template: %w", err)
 	}
 
 	makefilePath := filepath.Join(targetDir, "Makefile")
-	_, err = os.Stat(makefilePath)
-	if !os.IsNotExist(err) {
-		return err
+	if _, err = os.Stat(makefilePath); !os.IsNotExist(err) {
+		return fmt.Errorf("makefile already exists at '%s'", makefilePath)
 	}
 
-	return writeStringToFile(makefilePath, buf.String())
+	if err := writeStringToFile(makefilePath, buf.String()); err != nil {
+		return fmt.Errorf("failed to write Makefile: %w", err)
+	}
+
+	return nil
 }
 
 func createReadme() error {
 	rd, err := tplFiles.ReadFile("templates/README.md")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read README.md template: %w", err)
 	}
 
 	t, err := template.New("readme").Parse(string(rd))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to parse README.md template: %w", err)
 	}
 
 	buf := &bytes.Buffer{}
 	err = t.Execute(buf, struct{ ProjectName string }{projectName})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to execute README.md template: %w", err)
 	}
 
 	readmePath := filepath.Join(targetDir, "README.md")
-	_, err = os.Stat(readmePath)
-	if !os.IsNotExist(err) {
-		return err
+	if _, err = os.Stat(readmePath); !os.IsNotExist(err) {
+		return fmt.Errorf("README.md already exists at '%s'", readmePath)
 	}
 
-	return writeStringToFile(readmePath, buf.String())
+	if err := writeStringToFile(readmePath, buf.String()); err != nil {
+		return fmt.Errorf("failed to write README.md: %w", err)
+	}
+
+	return nil
 }
 
 func createGitignore() error {
@@ -326,11 +330,11 @@ func createGitignore() error {
 
 	gitignorePath := filepath.Join(targetDir, ".gitignore")
 	if _, err := os.Stat(gitignorePath); !os.IsNotExist(err) {
-		return err
+		return fmt.Errorf(".gitignore already exists at '%s'", gitignorePath)
 	}
 
 	if err := writeStringToFile(gitignorePath, string(gi)); err != nil {
-		return err
+		return fmt.Errorf("failed to write .gitignore: %w", err)
 	}
 
 	return nil
@@ -339,36 +343,43 @@ func createGitignore() error {
 func createMainDotGo() error {
 	mg, err := tplFiles.ReadFile("templates/main.go")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read main.go template: %w", err)
 	}
 
 	t, err := template.New("main.go").Parse(string(mg))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to parse main.go template: %w", err)
 	}
 
 	buf := new(bytes.Buffer)
 	err = t.Execute(buf, struct{ ProjectName string }{projectName})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to execute main.go template: %w", err)
 	}
 
 	mainPath := filepath.Join(targetDir, "main.go")
-	_, err = os.Stat(mainPath)
-	if !os.IsNotExist(err) {
-		return err
+	if _, err = os.Stat(mainPath); !os.IsNotExist(err) {
+		return fmt.Errorf("main.go already exists at '%s'", mainPath)
 	}
 
-	return writeStringToFile(mainPath, buf.String())
+	if err := writeStringToFile(mainPath, buf.String()); err != nil {
+		return fmt.Errorf("failed to write main.go: %w", err)
+	}
+
+	return nil
 }
 
 func execCommand(cmd string, args ...string) error {
 	c := exec.Command(cmd, args...)
 	c.Dir = targetDir
-	err := c.Run()
-	if err != nil {
-		return err
+	
+	if output, err := c.CombinedOutput(); err != nil {
+		if len(output) > 0 {
+			return fmt.Errorf("command '%s %v' failed: %s", cmd, args, string(output))
+		}
+		return fmt.Errorf("command '%s %v' failed: %w", cmd, args, err)
 	}
+	
 	return nil
 }
 
@@ -380,13 +391,18 @@ func binExists(name string) bool {
 func writeStringToFile(path string, content string) error {
 	f, err := os.Create(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create file '%s': %w", path, err)
 	}
-	defer f.Close()
+	
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil {
+			// Log the close error but don't override the main error
+			logErr("failed to close file '%s': %v", path, closeErr)
+		}
+	}()
 
-	_, err = f.WriteString(content)
-	if err != nil {
-		return err
+	if _, err = f.WriteString(content); err != nil {
+		return fmt.Errorf("failed to write content to file '%s': %w", path, err)
 	}
 	return nil
 }
