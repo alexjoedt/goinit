@@ -28,7 +28,6 @@ var (
 	versionFlag bool
 	help        bool
 	verbose     bool
-	debug       bool // currently unused
 
 	withTaskfile   bool
 	withMakefile   bool
@@ -91,9 +90,7 @@ func main() {
 	projectName = flag.Arg(0)
 
 	if err := run(); err != nil {
-		logErr("Failed to create project: %v", err)
-		flag.Usage()
-		os.Exit(1)
+		fatal("%v", err)
 	}
 }
 
@@ -121,72 +118,72 @@ func run() error {
 		return fmt.Errorf("target directory '%s' already exists. Please choose a different project name or remove the existing directory", targetDir)
 	}
 
-	logInfo("Creating project in %s\n", targetDir)
+	info("Creating project in %s", targetDir)
 
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
 		return fmt.Errorf("failed to create project directory '%s': %w", targetDir, err)
 	}
 
 	// Init Go Module
-	logInfo("Init Go Module")
+	info("Initializing Go module")
 	if err := initGoMod(); err != nil {
 		return fmt.Errorf("failed to initialize Go module: %w", err)
 	}
 
 	// Init Git Repo
-	logInfo("Init Git Repo")
+	info("Initializing Git repository")
 	if err := initGitRepo(); err != nil {
 		return fmt.Errorf("failed to initialize Git repository: %w", err)
 	}
 
 	// Create .gitignore
-	logInfo("Create .gitignore")
+	info("Creating .gitignore")
 	if err := createGitignore(); err != nil {
 		return fmt.Errorf("failed to create .gitignore file: %w", err)
 	}
 
 	// Create README.md
-	logInfo("Create README.md")
+	info("Creating README.md")
 	if err := createReadme(); err != nil {
 		return fmt.Errorf("failed to create README.md file: %w", err)
 	}
 
 	// Create main.go
-	logInfo("Create main.go")
+	info("Creating main.go")
 	if err := createMainDotGo(); err != nil {
 		return fmt.Errorf("failed to create main.go file: %w", err)
 	}
 
 	if withTaskfile {
 		if !binExists("task") {
-			logWarn("task binary not found in PATH. You can install it from: https://taskfile.dev/installation/")
+			warn("task binary not found in PATH. You can install it from: https://taskfile.dev/installation/")
 		}
 
-		logInfo("Create Taskfile.yml")
+		info("Creating Taskfile.yml")
 		if err := createTaskfile(); err != nil {
-			logWarn("failed to create Taskfile.yml: %v", err)
+			warn("failed to create Taskfile.yml: %v", err)
 		}
 	}
 
 	if withMakefile {
 		if !binExists("make") {
-			logWarn("make binary not found in PATH. You may need to install build tools for your system")
+			warn("make binary not found in PATH. You may need to install build tools for your system")
 		}
 
-		logInfo("Create Makefile")
+		info("Creating Makefile")
 		if err := createMakefile(); err != nil {
-			logWarn("failed to create Makefile: %v", err)
+			warn("failed to create Makefile: %v", err)
 		}
 	}
 
 	if withDockerfile {
 		if !binExists("docker") {
-			logWarn("docker binary not found in PATH. You can install it from: https://docs.docker.com/get-docker/")
+			warn("docker binary not found in PATH. You can install it from: https://docs.docker.com/get-docker/")
 		}
 
-		logInfo("Create Dockerfile")
+		info("Creating Dockerfile")
 		if err := createDockerfile(); err != nil {
-			logWarn("failed to create Dockerfile: %v", err)
+			warn("failed to create Dockerfile: %v", err)
 		}
 	}
 
@@ -202,7 +199,6 @@ func initGoMod() error {
 	if moduleName != "" {
 		module = moduleName
 	}
-	logDebug("Set go module to %s", module)
 	return execCommand("go", "mod", "init", module)
 }
 
@@ -395,10 +391,7 @@ func writeStringToFile(path string, content string) error {
 	}
 	
 	defer func() {
-		if closeErr := f.Close(); closeErr != nil {
-			// Log the close error but don't override the main error
-			logErr("failed to close file '%s': %v", path, closeErr)
-		}
+		_ = f.Close()
 	}()
 
 	if _, err = f.WriteString(content); err != nil {
