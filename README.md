@@ -1,57 +1,56 @@
 # goinit
 
-A simple CLI tool to create a new Go project with a very basic directory structure.
+[![Go Version](https://img.shields.io/github/go-mod/go-version/alexjoedt/goinit)](https://golang.org/)
+[![License](https://img.shields.io/github/license/alexjoedt/goinit)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/alexjoedt/goinit)](https://github.com/alexjoedt/goinit/releases)
 
-Contributions are welcome!
+A simple CLI tool to quickly initialize Go projects with a clean directory structure.
 
-## Project structure
+## Installation
 
 ```bash
-.
-├── .git
-├── .gitignore
-├── Makefile (optional)
-├── README.md
-├── Taskfile.yml (optional)
-├── go.mod
-└── main.go
+go install github.com/alexjoedt/goinit@latest
 ```
 
 ## Usage
-    
-```bash
-$ go install github.com/alexjoedt/goinit
-$ goinit my-new-project
-```
-
-### Examples
-
-Create project with a Makefile:
 
 ```bash
-$ goinit -m my-new-project
-# or
-$ goinit --makefile my-new-project
+# Create a basic Go project
+goinit my-project
+
+# With optional components
+goinit -t -m -d my-webapp  # Add Taskfile, Makefile, and Dockerfile
+
+# Interactive mode
+goinit --interactive
 ```
 
-Create project with a Taskfile
+## Options
 
-```bash
-$ goinit -t my-new-project
-# or
-$ goinit --taskfile my-new-project
+```
+-t, --taskfile     Add Taskfile.yml for task automation
+-m, --makefile     Add Makefile for build automation  
+-d, --dockerfile   Add Dockerfile for containerization
+    --module       Custom Go module name
+-i, --interactive  Interactive mode with prompts
+-v, --verbose      Show detailed output
+-h, --help         Show help message
 ```
 
-Sets the module name
+## Project Structure
 
-```bash
-$ goinit -gm my-new-project
-# or
-$ goinit --module github.com/alexjoedt/goinit my-new-project
+```
+my-project/
+├── .git/
+├── .gitignore
+├── go.mod
+├── main.go
+├── README.md
+├── Makefile      (optional)
+├── Taskfile.yml  (optional)
+└── Dockerfile    (optional)
 ```
 
-### Roadmap
-- [x] Set the module name
-- [x] Create project with a Makefile
-- [x] Create project with a Taskfile
-- [x] Create project with a Dockerfile
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.

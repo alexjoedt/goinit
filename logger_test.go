@@ -9,10 +9,7 @@ import (
 
 func TestInfo(t *testing.T) {
 	// Test that info shows output when verbose is true
-	verbose = true
-	defer func() {
-		verbose = false
-	}()
+	config := &Config{Verbose: true}
 	
 	// Capture stderr
 	origStderr := os.Stderr
@@ -22,7 +19,7 @@ func TestInfo(t *testing.T) {
 		os.Stderr = origStderr
 	}()
 
-	info("test message")
+	info(config, "test message")
 	
 	w.Close()
 	buf := make([]byte, 1024)
@@ -35,7 +32,7 @@ func TestInfo(t *testing.T) {
 
 func TestInfoVerboseOff(t *testing.T) {
 	// Test that info shows no output when verbose is false
-	verbose = false
+	config := &Config{Verbose: false}
 	
 	// Capture stderr
 	origStderr := os.Stderr
@@ -45,7 +42,7 @@ func TestInfoVerboseOff(t *testing.T) {
 		os.Stderr = origStderr
 	}()
 
-	info("test message")
+	info(config, "test message")
 	
 	w.Close()
 	buf := make([]byte, 1024)
