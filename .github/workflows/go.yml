@@ -21,8 +21,13 @@ jobs:
       with:
         go-version: '1.25'
 
-    - name: Test
-      run: go test -v ./...
+    - name: Run tests
+      run: go test -v -coverprofile=coverage.txt ./...
+
+    - name: Upload results to Codecov
+      uses: codecov/codecov-action@v5
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
 
     - name: Build
       run: go build -v ./...
