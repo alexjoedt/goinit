@@ -40,6 +40,21 @@ changelog:
       - '^docs:'
       - '^test:'
 
+release:
+  github:
+    owner: alexjoedt
+    name: goinit
+  draft: false
+  prerelease: auto
+  name_template: "{{.ProjectName}} {{.Tag}}"
+  header: |
+    ## What's Changed
+    
+    This release includes the following changes:
+  footer: |
+    
+    **Full Changelog**: https://github.com/alexjoedt/goinit/compare/{{ .PreviousTag }}...{{ .Tag }}
+
 # The lines beneath this are called `modelines`. See `:help modeline`
 # Feel free to remove those if you don't want/use them.
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
