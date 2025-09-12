@@ -1,5 +1,7 @@
 # goinit
 
+[![Go](https://github.com/alexjoedt/goinit/actions/workflows/go.yml/badge.svg)](https://github.com/alexjoedt/goinit/actions/workflows/go.yml)
+[![codecov](https://codecov.io/gh/alexjoedt/goinit/branch/main/graph/badge.svg)](https://codecov.io/gh/alexjoedt/goinit)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/alexjoedt/goinit)](https://golang.org/)
 [![License](https://img.shields.io/github/license/alexjoedt/goinit)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/alexjoedt/goinit)](https://github.com/alexjoedt/goinit/releases)
