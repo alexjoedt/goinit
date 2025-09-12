@@ -16,63 +16,39 @@ import (
 // Test helper functions
 func setupTestDir(t *testing.T, projectName string) (string, func()) {
 	t.Helper()
-	
 
-	dir := filepath.Join("./test",randomName(),projectName)
-	err := os.MkdirAll(dir,0755)
+	dir := filepath.Join("./test", randomName(), projectName)
+	err := os.MkdirAll(dir, 0755)
 	if err != nil {
 		t.FailNow()
 	}
 	
-	cleanup := func(){
+	cleanup := func() {
 		_ = os.RemoveAll(dir)
 	}
 
 	return dir, cleanup
 }
 
-func setupGlobalVars(t *testing.T) func() {
-	t.Helper()
-	
-	// Save original global variables
-	origProjectName := projectName
-	origModuleName := moduleName
-	origWithMakefile := withMakefile
-	origWithTaskfile := withTaskfile
-	origWithDockerfile := withDockerfile
-	origVerbose := verbose
-	
-	return func() {
-		// Restore original values
-		projectName = origProjectName
-		moduleName = origModuleName
-		withMakefile = origWithMakefile
-		withTaskfile = origWithTaskfile
-		withDockerfile = origWithDockerfile
-		verbose = origVerbose
-	}
-}
-
 func TestInitGitRepo(t *testing.T) {
 	dir, cleanup := setupTestDir(t, "test_project")
 	t.Cleanup(cleanup)
-	restoreVars := setupGlobalVars(t)
-	t.Cleanup(restoreVars)
 
-	targetDir = dir
+	config := &Config{
+		ProjectName: "test_project",
+		TargetDir:   dir,
+	}
+
 	// Create target directory first
-	err := os.MkdirAll(targetDir, 0755)
+	err := os.MkdirAll(config.TargetDir, 0755)
 	require.NoError(t, err)
 
-	err = initGitRepo()
+	err = initGitRepo(config)
 	assert.NoError(t, err)
-	assert.DirExists(t, filepath.Join(targetDir, ".git"))
+	assert.DirExists(t, filepath.Join(config.TargetDir, ".git"))
 }
 
 func TestInitGoMod(t *testing.T) {
-	restoreVars := setupGlobalVars(t)
-	defer restoreVars()
-	
 	tests := []struct {
 		name        string
 		projectName string
@@ -104,18 +80,20 @@ func TestInitGoMod(t *testing.T) {
 			dir, cleanup := setupTestDir(t, tt.projectName)
 			defer cleanup()
 
-			targetDir = dir
-			projectName = tt.projectName
-			moduleName = tt.moduleName
+			config := &Config{
+				ProjectName: tt.projectName,
+				ModuleName:  tt.moduleName,
+				TargetDir:   dir,
+			}
 
 			// Create target directory first
-			err := os.MkdirAll(targetDir, 0755)
+			err := os.MkdirAll(config.TargetDir, 0755)
 			require.NoError(t, err)
 
-			err = initGoMod()
+			err = initGoMod(config)
 			assert.NoError(t, err)
 			
-			goModPath := filepath.Join(targetDir, "go.mod")
+			goModPath := filepath.Join(config.TargetDir, "go.mod")
 			assert.FileExists(t, goModPath)
 			
 			// Verify go.mod content
@@ -129,20 +107,20 @@ func TestInitGoMod(t *testing.T) {
 func TestCreateMainDotGo(t *testing.T) {
 	testDir, cleanup := setupTestDir(t, "test_project")
 	t.Cleanup(cleanup)
-	restoreVars := setupGlobalVars(t)
-	t.Cleanup(restoreVars)
 
-	targetDir = testDir
-	projectName = "test_project"
+	config := &Config{
+		ProjectName: "test_project",
+		TargetDir:   testDir,
+	}
 
 	// Create target directory first
-	err := os.MkdirAll(targetDir, 0755)
+	err := os.MkdirAll(config.TargetDir, 0755)
 	require.NoError(t, err)
 
-	err = createMainDotGo()
+	err = createMainDotGo(config)
 	assert.NoError(t, err)
 	
-	mainGoPath := filepath.Join(targetDir, "main.go")
+	mainGoPath := filepath.Join(config.TargetDir, "main.go")
 	assert.FileExists(t, mainGoPath)
 	
 	// Verify content
@@ -154,19 +132,20 @@ func TestCreateMainDotGo(t *testing.T) {
 func TestCreateGitIgnore(t *testing.T) {
 	testDir, cleanup := setupTestDir(t, "test_project")
 	t.Cleanup(cleanup)
-	restoreVars := setupGlobalVars(t)
-	t.Cleanup(restoreVars)
 
-	targetDir = testDir
+	config := &Config{
+		ProjectName: "test_project",
+		TargetDir:   testDir,
+	}
 
 	// Create target directory first
-	err := os.MkdirAll(targetDir, 0755)
+	err := os.MkdirAll(config.TargetDir, 0755)
 	require.NoError(t, err)
 
-	err = createGitignore()
+	err = createGitignore(config)
 	assert.NoError(t, err)
 	
-	gitignorePath := filepath.Join(targetDir, ".gitignore")
+	gitignorePath := filepath.Join(config.TargetDir, ".gitignore")
 	assert.FileExists(t, gitignorePath)
 	
 	// Verify content includes essential entries
@@ -181,20 +160,20 @@ func TestCreateGitIgnore(t *testing.T) {
 func TestCreateReadme(t *testing.T) {
 	testDir, cleanup := setupTestDir(t, "test_project")
 	t.Cleanup(cleanup)
-	restoreVars := setupGlobalVars(t)
-	t.Cleanup(restoreVars)
 
-	targetDir = testDir
-	projectName = "test_project"
+	config := &Config{
+		ProjectName: "test_project",
+		TargetDir:   testDir,
+	}
 
 	// Create target directory first
-	err := os.MkdirAll(targetDir, 0755)
+	err := os.MkdirAll(config.TargetDir, 0755)
 	require.NoError(t, err)
 
-	err = createReadme()
+	err = createReadme(config)
 	assert.NoError(t, err)
 	
-	readmePath := filepath.Join(targetDir, "README.md")
+	readmePath := filepath.Join(config.TargetDir, "README.md")
 	assert.FileExists(t, readmePath)
 	
 	// Verify content
@@ -206,20 +185,20 @@ func TestCreateReadme(t *testing.T) {
 func TestCreateTaskfile(t *testing.T) {
 	testDir, cleanup := setupTestDir(t, "test_project")
 	t.Cleanup(cleanup)
-	restoreVars := setupGlobalVars(t)
-	t.Cleanup(restoreVars)
 
-	targetDir = testDir
-	projectName = "test_project"
+	config := &Config{
+		ProjectName: "test_project",
+		TargetDir:   testDir,
+	}
 
 	// Create target directory first
-	err := os.MkdirAll(targetDir, 0755)
+	err := os.MkdirAll(config.TargetDir, 0755)
 	require.NoError(t, err)
 
-	err = createTaskfile()
+	err = createTaskfile(config)
 	assert.NoError(t, err)
 	
-	taskfilePath := filepath.Join(targetDir, "Taskfile.yml")
+	taskfilePath := filepath.Join(config.TargetDir, "Taskfile.yml")
 	assert.FileExists(t, taskfilePath)
 	
 	// Verify content
@@ -233,20 +212,20 @@ func TestCreateTaskfile(t *testing.T) {
 func TestCreateMakefile(t *testing.T) {
 	testDir, cleanup := setupTestDir(t, "test_project")
 	t.Cleanup(cleanup)
-	restoreVars := setupGlobalVars(t)
-	t.Cleanup(restoreVars)
 
-	targetDir = testDir
-	projectName = "test_project"
+	config := &Config{
+		ProjectName: "test_project",
+		TargetDir:   testDir,
+	}
 
 	// Create target directory first
-	err := os.MkdirAll(targetDir, 0755)
+	err := os.MkdirAll(config.TargetDir, 0755)
 	require.NoError(t, err)
 
-	err = createMakefile()
+	err = createMakefile(config)
 	assert.NoError(t, err)
 	
-	makefilePath := filepath.Join(targetDir, "Makefile")
+	makefilePath := filepath.Join(config.TargetDir, "Makefile")
 	assert.FileExists(t, makefilePath)
 	
 	// Verify content
@@ -260,20 +239,20 @@ func TestCreateMakefile(t *testing.T) {
 func TestCreateDockerfile(t *testing.T) {
 	testDir, cleanup := setupTestDir(t, "test_project")
 	t.Cleanup(cleanup)
-	restoreVars := setupGlobalVars(t)
-	t.Cleanup(restoreVars)
 
-	targetDir = testDir
-	projectName = "test_project"
+	config := &Config{
+		ProjectName: "test_project",
+		TargetDir:   testDir,
+	}
 
 	// Create target directory first
-	err := os.MkdirAll(targetDir, 0755)
+	err := os.MkdirAll(config.TargetDir, 0755)
 	require.NoError(t, err)
 
-	err = createDockerfile()
+	err = createDockerfile(config)
 	assert.NoError(t, err)
 	
-	dockerfilePath := filepath.Join(targetDir, "Dockerfile")
+	dockerfilePath := filepath.Join(config.TargetDir, "Dockerfile")
 	assert.FileExists(t, dockerfilePath)
 	
 	// Verify content
@@ -287,8 +266,6 @@ func TestCreateDockerfile(t *testing.T) {
 func TestRun_BasicProject(t *testing.T) {
 	testRootDir, cleanup := setupTestDir(t, "basic_project")
 	t.Cleanup(cleanup)
-	restoreVars := setupGlobalVars(t)
-	t.Cleanup(restoreVars)
 
 	// Change to test root directory
 	originalWd, err := os.Getwd()
@@ -299,34 +276,34 @@ func TestRun_BasicProject(t *testing.T) {
 	err = os.Chdir(testRootDir)
 	require.NoError(t, err)
 
-	// Set up test variables
-	projectName = "basic_project"
-	moduleName = ""
-	withMakefile = false
-	withTaskfile = false
-	withDockerfile = false
+	// Set up test config
+	config := &Config{
+		ProjectName:    "basic_project",
+		ModuleName:     "",
+		WithMakefile:   false,
+		WithTaskfile:   false,
+		WithDockerfile: false,
+	}
 
-	err = run()
+	err = run(config)
 	assert.NoError(t, err)
 
 	// Verify all basic files are created
-	assert.FileExists(t, filepath.Join(targetDir, "README.md"))
-	assert.FileExists(t, filepath.Join(targetDir, "go.mod"))
-	assert.FileExists(t, filepath.Join(targetDir, "main.go"))
-	assert.FileExists(t, filepath.Join(targetDir, ".gitignore"))
-	assert.DirExists(t, filepath.Join(targetDir, ".git"))
+	assert.FileExists(t, filepath.Join(config.TargetDir, "README.md"))
+	assert.FileExists(t, filepath.Join(config.TargetDir, "go.mod"))
+	assert.FileExists(t, filepath.Join(config.TargetDir, "main.go"))
+	assert.FileExists(t, filepath.Join(config.TargetDir, ".gitignore"))
+	assert.DirExists(t, filepath.Join(config.TargetDir, ".git"))
 	
 	// Verify optional files are NOT created
-	assert.NoFileExists(t, filepath.Join(targetDir, "Makefile"))
-	assert.NoFileExists(t, filepath.Join(targetDir, "Taskfile.yml"))
-	assert.NoFileExists(t, filepath.Join(targetDir, "Dockerfile"))
+	assert.NoFileExists(t, filepath.Join(config.TargetDir, "Makefile"))
+	assert.NoFileExists(t, filepath.Join(config.TargetDir, "Taskfile.yml"))
+	assert.NoFileExists(t, filepath.Join(config.TargetDir, "Dockerfile"))
 }
 
 func TestRun_WithAllOptions(t *testing.T) {
 	testRootDir, cleanup := setupTestDir(t, "full_project") 
 	t.Cleanup(cleanup)
-	restoreVars := setupGlobalVars(t)
-	t.Cleanup(restoreVars)
 
 	// Change to test root directory
 	originalWd, err := os.Getwd()
@@ -337,25 +314,27 @@ func TestRun_WithAllOptions(t *testing.T) {
 	err = os.Chdir(testRootDir)
 	require.NoError(t, err)
 
-	// Set up test variables
-	projectName = "full_project"
-	moduleName = "github.com/test/full_project"
-	withMakefile = true
-	withTaskfile = true
-	withDockerfile = true
+	// Set up test config
+	config := &Config{
+		ProjectName:    "full_project",
+		ModuleName:     "github.com/test/full_project",
+		WithMakefile:   true,
+		WithTaskfile:   true,
+		WithDockerfile: true,
+	}
 
-	err = run()
+	err = run(config)
 	assert.NoError(t, err)
 
 	// Verify all files are created
-	assert.FileExists(t, filepath.Join(targetDir, "README.md"))
-	assert.FileExists(t, filepath.Join(targetDir, "go.mod"))
-	assert.FileExists(t, filepath.Join(targetDir, "main.go"))
-	assert.FileExists(t, filepath.Join(targetDir, ".gitignore"))
-	assert.FileExists(t, filepath.Join(targetDir, "Makefile"))
-	assert.FileExists(t, filepath.Join(targetDir, "Taskfile.yml"))
-	assert.FileExists(t, filepath.Join(targetDir, "Dockerfile"))
-	assert.DirExists(t, filepath.Join(targetDir, ".git"))
+	assert.FileExists(t, filepath.Join(config.TargetDir, "README.md"))
+	assert.FileExists(t, filepath.Join(config.TargetDir, "go.mod"))
+	assert.FileExists(t, filepath.Join(config.TargetDir, "main.go"))
+	assert.FileExists(t, filepath.Join(config.TargetDir, ".gitignore"))
+	assert.FileExists(t, filepath.Join(config.TargetDir, "Makefile"))
+	assert.FileExists(t, filepath.Join(config.TargetDir, "Taskfile.yml"))
+	assert.FileExists(t, filepath.Join(config.TargetDir, "Dockerfile"))
+	assert.DirExists(t, filepath.Join(config.TargetDir, ".git"))
 }
 
 func TestRun_ErrorCases(t *testing.T) {
@@ -388,8 +367,6 @@ func TestRun_ErrorCases(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			testRootDir, cleanup := setupTestDir(t, tt.projectName)
 			t.Cleanup(cleanup)
-			restoreVars := setupGlobalVars(t)
-			t.Cleanup(restoreVars)
 
 			// Change to test root directory
 			originalWd, err := os.Getwd()
@@ -404,9 +381,11 @@ func TestRun_ErrorCases(t *testing.T) {
 				tt.setupFunc(t, testRootDir)
 			}
 
-			projectName = tt.projectName
+			config := &Config{
+				ProjectName: tt.projectName,
+			}
 
-			err = run()
+			err = run(config)
 			if tt.wantError {
 				assert.Error(t, err)
 			} else {
@@ -498,13 +477,14 @@ func TestBinExists(t *testing.T) {
 func TestExecCommand(t *testing.T) {
 	testDir, cleanup := setupTestDir(t, "exec_test")
 	t.Cleanup(cleanup)
-	restoreVars := setupGlobalVars(t)
-	t.Cleanup(restoreVars)
 
-	targetDir = testDir
+	config := &Config{
+		ProjectName: "exec_test",
+		TargetDir:   testDir,
+	}
 
 	// Create target directory for command execution
-	err := os.MkdirAll(targetDir, 0755)
+	err := os.MkdirAll(config.TargetDir, 0755)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -535,7 +515,7 @@ func TestExecCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := execCommand(tt.cmd, tt.args...)
+			err := execCommand(config, tt.cmd, tt.args...)
 			if tt.wantError {
 				assert.Error(t, err)
 			} else {
@@ -549,23 +529,23 @@ func TestExecCommand(t *testing.T) {
 func TestFileCreation_ExistingFiles(t *testing.T) {
 	testDir, cleanup := setupTestDir(t, "existing_files_test")
 	t.Cleanup(cleanup)
-	restoreVars := setupGlobalVars(t)
-	t.Cleanup(restoreVars)
 
-	targetDir = testDir
-	projectName = "existing_files_test"
+	config := &Config{
+		ProjectName: "existing_files_test",
+		TargetDir:   testDir,
+	}
 
 	// Create target directory
-	err := os.MkdirAll(targetDir, 0755)
+	err := os.MkdirAll(config.TargetDir, 0755)
 	require.NoError(t, err)
 
 	// Pre-create a README.md file
-	readmePath := filepath.Join(targetDir, "README.md")
+	readmePath := filepath.Join(config.TargetDir, "README.md")
 	err = os.WriteFile(readmePath, []byte("existing content"), 0644)
 	require.NoError(t, err)
 
 	// Attempt to create README - should fail because file exists
-	err = createReadme()
+	err = createReadme(config)
 	assert.Error(t, err)
 
 	// Verify original content is preserved

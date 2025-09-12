@@ -6,8 +6,8 @@ import (
 )
 
 // info prints informational messages only when verbose mode is enabled
-func info(format string, args ...interface{}) {
-	if verbose {
+func info(config *Config, format string, args ...interface{}) {
+	if config != nil && config.Verbose {
 		fmt.Fprintf(os.Stderr, "• "+format+"\n", args...)
 	}
 }
