@@ -2,16 +2,13 @@ package main
 
 import (
 	"os"
+	"strings"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestInfo(t *testing.T) {
-	// Test that info shows output when verbose is true
 	config := &Config{Verbose: true}
-	
-	// Capture stderr
+
 	origStderr := os.Stderr
 	r, w, _ := os.Pipe()
 	os.Stderr = w
@@ -20,21 +17,23 @@ func TestInfo(t *testing.T) {
 	}()
 
 	info(config, "test message")
-	
+
 	w.Close()
 	buf := make([]byte, 1024)
 	n, _ := r.Read(buf)
 	output := string(buf[:n])
-	
-	assert.Contains(t, output, "test message")
-	assert.Contains(t, output, "•")
+
+	if !strings.Contains(output, "test message") {
+		t.Errorf("expected output to contain %q, got %q", "test message", output)
+	}
+	if !strings.Contains(output, "•") {
+		t.Errorf("expected output to contain %q, got %q", "•", output)
+	}
 }
 
 func TestInfoVerboseOff(t *testing.T) {
-	// Test that info shows no output when verbose is false
 	config := &Config{Verbose: false}
-	
-	// Capture stderr
+
 	origStderr := os.Stderr
 	r, w, _ := os.Pipe()
 	os.Stderr = w
@@ -43,17 +42,18 @@ func TestInfoVerboseOff(t *testing.T) {
 	}()
 
 	info(config, "test message")
-	
+
 	w.Close()
 	buf := make([]byte, 1024)
 	n, _ := r.Read(buf)
 	output := string(buf[:n])
-	
-	assert.Empty(t, output)
+
+	if output != "" {
+		t.Errorf("expected no output, got %q", output)
+	}
 }
 
 func TestWarn(t *testing.T) {
-	// Capture stderr
 	origStderr := os.Stderr
 	r, w, _ := os.Pipe()
 	os.Stderr = w
@@ -62,12 +62,16 @@ func TestWarn(t *testing.T) {
 	}()
 
 	warn("test warning")
-	
+
 	w.Close()
 	buf := make([]byte, 1024)
 	n, _ := r.Read(buf)
 	output := string(buf[:n])
-	
-	assert.Contains(t, output, "Warning:")
-	assert.Contains(t, output, "test warning")
+
+	if !strings.Contains(output, "Warning:") {
+		t.Errorf("expected output to contain %q, got %q", "Warning:", output)
+	}
+	if !strings.Contains(output, "test warning") {
+		t.Errorf("expected output to contain %q, got %q", "test warning", output)
+	}
 }

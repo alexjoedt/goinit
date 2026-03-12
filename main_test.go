@@ -1,31 +1,88 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
-
-	"crypto/rand"
-	"encoding/hex"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-// Test helper functions
 func setupTestDir(t *testing.T, projectName string) (string, func()) {
 	t.Helper()
 
 	dir := filepath.Join("./test", randomName(), projectName)
 	err := os.MkdirAll(dir, 0755)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("failed to create test dir: %v", err)
+	}
 
 	cleanup := func() {
 		_ = os.RemoveAll(dir)
 	}
 
 	return dir, cleanup
+}
+
+func requireNoError(t *testing.T, err error) {
+	t.Helper()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func assertNoError(t *testing.T, err error) {
+	t.Helper()
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func assertError(t *testing.T, err error) {
+	t.Helper()
+	if err == nil {
+		t.Error("expected an error, got nil")
+	}
+}
+
+func assertFileExists(t *testing.T, path string) {
+	t.Helper()
+	info, err := os.Stat(path)
+	if os.IsNotExist(err) || (err == nil && info.IsDir()) {
+		t.Errorf("expected file to exist: %s", path)
+	}
+}
+
+func assertNoFileExists(t *testing.T, path string) {
+	t.Helper()
+	_, err := os.Stat(path)
+	if err == nil {
+		t.Errorf("expected file to not exist: %s", path)
+	}
+}
+
+func assertDirExists(t *testing.T, path string) {
+	t.Helper()
+	info, err := os.Stat(path)
+	if os.IsNotExist(err) || (err == nil && !info.IsDir()) {
+		t.Errorf("expected directory to exist: %s", path)
+	}
+}
+
+func assertContains(t *testing.T, s, substr string) {
+	t.Helper()
+	if !strings.Contains(s, substr) {
+		t.Errorf("expected string to contain %q\ngot: %q", substr, s)
+	}
+}
+
+func assertEqual(t *testing.T, expected, actual string) {
+	t.Helper()
+	if expected != actual {
+		t.Errorf("expected %q, got %q", expected, actual)
+	}
 }
 
 func TestInitGitRepo(t *testing.T) {
@@ -38,8 +95,8 @@ func TestInitGitRepo(t *testing.T) {
 	}
 
 	err := initGitRepo(config)
-	assert.NoError(t, err)
-	assert.DirExists(t, filepath.Join(config.TargetDir, ".git"))
+	assertNoError(t, err)
+	assertDirExists(t, filepath.Join(config.TargetDir, ".git"))
 }
 
 func TestInitGoMod(t *testing.T) {
@@ -81,15 +138,14 @@ func TestInitGoMod(t *testing.T) {
 			}
 
 			err := initGoMod(config)
-			assert.NoError(t, err)
+			assertNoError(t, err)
 
 			goModPath := filepath.Join(config.TargetDir, "go.mod")
-			assert.FileExists(t, goModPath)
+			assertFileExists(t, goModPath)
 
-			// Verify go.mod content
 			content, err := os.ReadFile(goModPath)
-			require.NoError(t, err)
-			assert.Contains(t, string(content), "module "+tt.wantModule)
+			requireNoError(t, err)
+			assertContains(t, string(content), "module "+tt.wantModule)
 		})
 	}
 }
@@ -104,15 +160,14 @@ func TestCreateMainDotGo(t *testing.T) {
 	}
 
 	err := createMainDotGo(config)
-	assert.NoError(t, err)
+	assertNoError(t, err)
 
 	mainGoPath := filepath.Join(config.TargetDir, "main.go")
-	assert.FileExists(t, mainGoPath)
+	assertFileExists(t, mainGoPath)
 
-	// Verify content
 	content, err := os.ReadFile(mainGoPath)
-	require.NoError(t, err)
-	assert.Contains(t, string(content), `fmt.Println("Hello test_project")`)
+	requireNoError(t, err)
+	assertContains(t, string(content), `fmt.Println("Hello test_project")`)
 }
 
 func TestCreateGitIgnore(t *testing.T) {
@@ -125,18 +180,17 @@ func TestCreateGitIgnore(t *testing.T) {
 	}
 
 	err := createGitignore(config)
-	assert.NoError(t, err)
+	assertNoError(t, err)
 
 	gitignorePath := filepath.Join(config.TargetDir, ".gitignore")
-	assert.FileExists(t, gitignorePath)
+	assertFileExists(t, gitignorePath)
 
-	// Verify content includes essential entries
 	content, err := os.ReadFile(gitignorePath)
-	require.NoError(t, err)
+	requireNoError(t, err)
 	contentStr := string(content)
-	assert.Contains(t, contentStr, "*.exe")
-	assert.Contains(t, contentStr, "*.test")
-	assert.Contains(t, contentStr, "bin/")
+	assertContains(t, contentStr, "*.exe")
+	assertContains(t, contentStr, "*.test")
+	assertContains(t, contentStr, "bin/")
 }
 
 func TestCreateReadme(t *testing.T) {
@@ -149,15 +203,14 @@ func TestCreateReadme(t *testing.T) {
 	}
 
 	err := createReadme(config)
-	assert.NoError(t, err)
+	assertNoError(t, err)
 
 	readmePath := filepath.Join(config.TargetDir, "README.md")
-	assert.FileExists(t, readmePath)
+	assertFileExists(t, readmePath)
 
-	// Verify content
 	content, err := os.ReadFile(readmePath)
-	require.NoError(t, err)
-	assert.Contains(t, string(content), "# test_project")
+	requireNoError(t, err)
+	assertContains(t, string(content), "# test_project")
 }
 
 func TestCreateTaskfile(t *testing.T) {
@@ -170,17 +223,16 @@ func TestCreateTaskfile(t *testing.T) {
 	}
 
 	err := createTaskfile(config)
-	assert.NoError(t, err)
+	assertNoError(t, err)
 
 	taskfilePath := filepath.Join(config.TargetDir, "Taskfile.yml")
-	assert.FileExists(t, taskfilePath)
+	assertFileExists(t, taskfilePath)
 
-	// Verify content
 	content, err := os.ReadFile(taskfilePath)
-	require.NoError(t, err)
+	requireNoError(t, err)
 	contentStr := string(content)
-	assert.Contains(t, contentStr, "BINARY: test_project")
-	assert.Contains(t, contentStr, "version: '3'")
+	assertContains(t, contentStr, "BINARY: test_project")
+	assertContains(t, contentStr, "version: '3'")
 }
 
 func TestCreateMakefile(t *testing.T) {
@@ -193,17 +245,16 @@ func TestCreateMakefile(t *testing.T) {
 	}
 
 	err := createMakefile(config)
-	assert.NoError(t, err)
+	assertNoError(t, err)
 
 	makefilePath := filepath.Join(config.TargetDir, "Makefile")
-	assert.FileExists(t, makefilePath)
+	assertFileExists(t, makefilePath)
 
-	// Verify content
 	content, err := os.ReadFile(makefilePath)
-	require.NoError(t, err)
+	requireNoError(t, err)
 	contentStr := string(content)
-	assert.Contains(t, contentStr, "test_project")
-	assert.Contains(t, contentStr, ".PHONY:")
+	assertContains(t, contentStr, "test_project")
+	assertContains(t, contentStr, ".PHONY:")
 }
 
 func TestCreateDockerfile(t *testing.T) {
@@ -216,17 +267,16 @@ func TestCreateDockerfile(t *testing.T) {
 	}
 
 	err := createDockerfile(config)
-	assert.NoError(t, err)
+	assertNoError(t, err)
 
 	dockerfilePath := filepath.Join(config.TargetDir, "Dockerfile")
-	assert.FileExists(t, dockerfilePath)
+	assertFileExists(t, dockerfilePath)
 
-	// Verify content
 	content, err := os.ReadFile(dockerfilePath)
-	require.NoError(t, err)
+	requireNoError(t, err)
 	contentStr := string(content)
-	assert.Contains(t, contentStr, "test_project")
-	assert.Contains(t, contentStr, "FROM golang:")
+	assertContains(t, contentStr, "test_project")
+	assertContains(t, contentStr, "FROM golang:")
 }
 
 func TestRun_BasicProject(t *testing.T) {
@@ -235,14 +285,13 @@ func TestRun_BasicProject(t *testing.T) {
 
 	// Change to test root directory
 	originalWd, err := os.Getwd()
-	require.NoError(t, err)
+	requireNoError(t, err)
 	t.Cleanup(func() {
-		_ = os.Chdir(originalWd) // Ignore error in cleanup
+		_ = os.Chdir(originalWd)
 	})
 	err = os.Chdir(testRootDir)
-	require.NoError(t, err)
+	requireNoError(t, err)
 
-	// Set up test config
 	config := &Config{
 		ProjectName:    "basic_project",
 		ModuleName:     "",
@@ -252,19 +301,17 @@ func TestRun_BasicProject(t *testing.T) {
 	}
 
 	err = run(config)
-	assert.NoError(t, err)
+	assertNoError(t, err)
 
-	// Verify all basic files are created
-	assert.FileExists(t, filepath.Join(config.TargetDir, "README.md"))
-	assert.FileExists(t, filepath.Join(config.TargetDir, "go.mod"))
-	assert.FileExists(t, filepath.Join(config.TargetDir, "main.go"))
-	assert.FileExists(t, filepath.Join(config.TargetDir, ".gitignore"))
-	assert.DirExists(t, filepath.Join(config.TargetDir, ".git"))
+	assertFileExists(t, filepath.Join(config.TargetDir, "README.md"))
+	assertFileExists(t, filepath.Join(config.TargetDir, "go.mod"))
+	assertFileExists(t, filepath.Join(config.TargetDir, "main.go"))
+	assertFileExists(t, filepath.Join(config.TargetDir, ".gitignore"))
+	assertDirExists(t, filepath.Join(config.TargetDir, ".git"))
 
-	// Verify optional files are NOT created
-	assert.NoFileExists(t, filepath.Join(config.TargetDir, "Makefile"))
-	assert.NoFileExists(t, filepath.Join(config.TargetDir, "Taskfile.yml"))
-	assert.NoFileExists(t, filepath.Join(config.TargetDir, "Dockerfile"))
+	assertNoFileExists(t, filepath.Join(config.TargetDir, "Makefile"))
+	assertNoFileExists(t, filepath.Join(config.TargetDir, "Taskfile.yml"))
+	assertNoFileExists(t, filepath.Join(config.TargetDir, "Dockerfile"))
 }
 
 func TestRun_WithAllOptions(t *testing.T) {
@@ -273,14 +320,13 @@ func TestRun_WithAllOptions(t *testing.T) {
 
 	// Change to test root directory
 	originalWd, err := os.Getwd()
-	require.NoError(t, err)
+	requireNoError(t, err)
 	t.Cleanup(func() {
-		_ = os.Chdir(originalWd) // Ignore error in cleanup
+		_ = os.Chdir(originalWd)
 	})
 	err = os.Chdir(testRootDir)
-	require.NoError(t, err)
+	requireNoError(t, err)
 
-	// Set up test config
 	config := &Config{
 		ProjectName:    "full_project",
 		ModuleName:     "github.com/test/full_project",
@@ -290,17 +336,16 @@ func TestRun_WithAllOptions(t *testing.T) {
 	}
 
 	err = run(config)
-	assert.NoError(t, err)
+	assertNoError(t, err)
 
-	// Verify all files are created
-	assert.FileExists(t, filepath.Join(config.TargetDir, "README.md"))
-	assert.FileExists(t, filepath.Join(config.TargetDir, "go.mod"))
-	assert.FileExists(t, filepath.Join(config.TargetDir, "main.go"))
-	assert.FileExists(t, filepath.Join(config.TargetDir, ".gitignore"))
-	assert.FileExists(t, filepath.Join(config.TargetDir, "Makefile"))
-	assert.FileExists(t, filepath.Join(config.TargetDir, "Taskfile.yml"))
-	assert.FileExists(t, filepath.Join(config.TargetDir, "Dockerfile"))
-	assert.DirExists(t, filepath.Join(config.TargetDir, ".git"))
+	assertFileExists(t, filepath.Join(config.TargetDir, "README.md"))
+	assertFileExists(t, filepath.Join(config.TargetDir, "go.mod"))
+	assertFileExists(t, filepath.Join(config.TargetDir, "main.go"))
+	assertFileExists(t, filepath.Join(config.TargetDir, ".gitignore"))
+	assertFileExists(t, filepath.Join(config.TargetDir, "Makefile"))
+	assertFileExists(t, filepath.Join(config.TargetDir, "Taskfile.yml"))
+	assertFileExists(t, filepath.Join(config.TargetDir, "Dockerfile"))
+	assertDirExists(t, filepath.Join(config.TargetDir, ".git"))
 }
 
 func TestRun_ErrorCases(t *testing.T) {
@@ -323,7 +368,9 @@ func TestRun_ErrorCases(t *testing.T) {
 				wd, _ := os.Getwd()
 				targetPath := filepath.Join(wd, "existing_project")
 				err := os.MkdirAll(targetPath, 0755)
-				require.NoError(t, err)
+				if err != nil {
+					t.Fatalf("failed to create dir: %v", err)
+				}
 			},
 			wantError: true,
 		},
@@ -336,12 +383,12 @@ func TestRun_ErrorCases(t *testing.T) {
 
 			// Change to test root directory
 			originalWd, err := os.Getwd()
-			require.NoError(t, err)
+			requireNoError(t, err)
 			t.Cleanup(func() {
-				_ = os.Chdir(originalWd) // Ignore error in cleanup
+				_ = os.Chdir(originalWd)
 			})
 			err = os.Chdir(testRootDir)
-			require.NoError(t, err)
+			requireNoError(t, err)
 
 			if tt.setupFunc != nil {
 				tt.setupFunc(t, testRootDir)
@@ -353,9 +400,9 @@ func TestRun_ErrorCases(t *testing.T) {
 
 			err = run(config)
 			if tt.wantError {
-				assert.Error(t, err)
+				assertError(t, err)
 			} else {
-				assert.NoError(t, err)
+				assertNoError(t, err)
 			}
 		})
 	}
@@ -369,22 +416,21 @@ func TestWriteStringToFile(t *testing.T) {
 	testString := "test-string-content\nwith multiple lines"
 
 	err := writeStringToFile(testFile, testString)
-	assert.NoError(t, err)
+	assertNoError(t, err)
 
-	// Verify file exists and has correct content
-	assert.FileExists(t, testFile)
+	assertFileExists(t, testFile)
 	data, err := os.ReadFile(testFile)
-	require.NoError(t, err)
-	assert.Equal(t, testString, string(data))
+	requireNoError(t, err)
+	assertEqual(t, testString, string(data))
 
-	// Test file permissions
 	info, err := os.Stat(testFile)
-	require.NoError(t, err)
+	requireNoError(t, err)
 
-	// Check that file is readable and writable by owner
 	mode := info.Mode()
 	if runtime.GOOS != "windows" {
-		assert.True(t, mode&0600 != 0, "File should be readable and writable by owner")
+		if mode&0600 == 0 {
+			t.Error("file should be readable and writable by owner")
+		}
 	}
 }
 
@@ -395,12 +441,12 @@ func TestWriteStringToFile_ErrorCases(t *testing.T) {
 		t.Cleanup(cleanup)
 
 		readOnlyDir := filepath.Join(testRootDir, "readonly")
-		err := os.MkdirAll(readOnlyDir, 0555) // Read and execute only
-		require.NoError(t, err)
+		err := os.MkdirAll(readOnlyDir, 0555)
+		requireNoError(t, err)
 
 		testFile := filepath.Join(readOnlyDir, "testfile.txt")
 		err = writeStringToFile(testFile, "test")
-		assert.Error(t, err)
+		assertError(t, err)
 	}
 }
 
@@ -441,7 +487,9 @@ func TestBinExists(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := binExists(tt.binName)
-			assert.Equal(t, tt.expected, result)
+			if result != tt.expected {
+				t.Errorf("binExists(%q) = %v, want %v", tt.binName, result, tt.expected)
+			}
 		})
 	}
 }
@@ -485,9 +533,9 @@ func TestExecCommand(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := execCommand(config, tt.cmd, tt.args...)
 			if tt.wantError {
-				assert.Error(t, err)
+				assertError(t, err)
 			} else {
-				assert.NoError(t, err)
+				assertNoError(t, err)
 			}
 		})
 	}
@@ -503,19 +551,16 @@ func TestFileCreation_ExistingFiles(t *testing.T) {
 		TargetDir:   testDir,
 	}
 
-	// Pre-create a README.md file
 	readmePath := filepath.Join(config.TargetDir, "README.md")
 	err := os.WriteFile(readmePath, []byte("existing content"), 0644)
-	require.NoError(t, err)
+	requireNoError(t, err)
 
-	// Attempt to create README - should fail because file exists
 	err = createReadme(config)
-	assert.Error(t, err)
+	assertError(t, err)
 
-	// Verify original content is preserved
 	content, err := os.ReadFile(readmePath)
-	require.NoError(t, err)
-	assert.Equal(t, "existing content", string(content))
+	requireNoError(t, err)
+	assertEqual(t, "existing content", string(content))
 }
 
 func TestRandomName(t *testing.T) {
