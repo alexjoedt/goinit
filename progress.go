@@ -65,8 +65,8 @@ func NewProgressTracker(steps []string, w io.Writer) *ProgressTracker {
 // Start prints the initializing header when verbose mode is active.
 func (p *ProgressTracker) Start(config *Config) {
 	if config.Verbose {
-		fmt.Fprintln(p.w, colorize(colorBold+colorCyan, "Initializing Go project..."))
-		fmt.Fprintln(p.w)
+		_, _ = fmt.Fprintln(p.w, colorize(colorBold+colorCyan, "Initializing Go project..."))
+		_, _ = fmt.Fprintln(p.w)
 	}
 }
 
@@ -75,7 +75,7 @@ func (p *ProgressTracker) NextStep(config *Config) {
 	if p.current < len(p.steps) {
 		p.steps[p.current].done = true
 		if config.Verbose {
-			fmt.Fprintf(p.w, "   %s %s\n",
+			_, _ = fmt.Fprintf(p.w, "   %s %s\n",
 				colorize(colorGreen, "✓"),
 				colorize(colorGray, p.steps[p.current].name))
 		}
@@ -85,7 +85,7 @@ func (p *ProgressTracker) NextStep(config *Config) {
 
 // Complete prints the final success message.
 func (p *ProgressTracker) Complete(config *Config) {
-	fmt.Fprintf(p.w, "Project '%s' created at %s\n",
+	_, _ = fmt.Fprintf(p.w, "Project '%s' created at %s\n",
 		colorize(colorGreen+colorBold, config.ProjectName),
 		config.TargetDir)
 }

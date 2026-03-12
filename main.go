@@ -58,11 +58,11 @@ OPTIONS:
 func runInteractiveMode(config *Config, r io.Reader, w io.Writer) error {
 	reader := bufio.NewReader(r)
 
-	fmt.Fprintln(w, "Interactive Go Project Setup")
-	fmt.Fprintln(w, "============================")
+	_, _ = fmt.Fprintln(w, "Interactive Go Project Setup")
+	_, _ = fmt.Fprintln(w, "============================")
 
 	readLine := func(prompt string) (string, error) {
-		fmt.Fprint(w, prompt)
+		_, _ = fmt.Fprint(w, prompt)
 		input, err := reader.ReadString('\n')
 		if err != nil && !errors.Is(err, io.EOF) {
 			return "", fmt.Errorf("reading input: %w", err)
@@ -111,7 +111,7 @@ func runInteractiveMode(config *Config, r io.Reader, w io.Writer) error {
 	}
 	config.Verbose = strings.ToLower(verbose) == "y"
 
-	fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w)
 	return nil
 }
 
@@ -190,26 +190,26 @@ func run(config *Config, stdout, stderr io.Writer) error {
 	// Normalize and validate project name.
 	config.ProjectName = strings.TrimSpace(config.ProjectName)
 	if config.ProjectName == "" {
-		return errors.New(`Project name is required.
+		return errors.New(`project name is required
 
 Examples:
   goinit my-app                    # Simple project
   goinit --interactive             # Interactive setup
   goinit -t -d my-webapp           # With Taskfile and Dockerfile
 
-Use 'goinit --help' for more information.`)
+Use 'goinit --help' for more information`)
 	}
 
 	config.ProjectName = filepath.Base(config.ProjectName)
 
 	// Check for invalid characters in project name
 	if strings.ContainsAny(config.ProjectName, `<>:"/\|?*`) {
-		return fmt.Errorf("Project name '%s' contains invalid characters. Use only letters, numbers, hyphens, and underscores", config.ProjectName)
+		return fmt.Errorf("Project name '%s' contains invalid characters. Use only letters, numbers, hyphens, and underscores", config.ProjectName) //nolint: staticcheck
 	}
 
 	config.TargetDir = filepath.Join(wd, config.ProjectName)
 	if _, err := os.Stat(config.TargetDir); !os.IsNotExist(err) {
-		return fmt.Errorf(`Directory '%s' already exists.
+		return fmt.Errorf(`directory '%s' already exists.
 
 Solutions:
   • Choose a different project name: goinit my-other-project
