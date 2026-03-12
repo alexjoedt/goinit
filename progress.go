@@ -5,88 +5,85 @@ import (
 	"os"
 )
 
-// Color codes for terminal output
+// ANSI color codes for terminal output.
 const (
-	Reset   = "\033[0m"
-	Red     = "\033[31m"
-	Green   = "\033[32m"
-	Yellow  = "\033[33m"
-	Blue    = "\033[34m"
-	Purple  = "\033[35m"
-	Cyan    = "\033[36m"
-	Gray    = "\033[37m"
-	Bold    = "\033[1m"
+	colorReset = "\033[0m"
+	colorGreen = "\033[32m"
+	colorCyan  = "\033[36m"
+	colorGray  = "\033[37m"
+	colorBold  = "\033[1m"
 )
 
-// isTerminal checks if the output is being written to a terminal
-func isTerminal() bool {
+// colorEnabled reports whether ANSI color output should be emitted to stdout.
+// It returns false when NO_COLOR is set, TERM is "dumb", or stdout is not
+// connected to an interactive terminal.
+func colorEnabled() bool {
 	if os.Getenv("NO_COLOR") != "" {
 		return false
 	}
 	if os.Getenv("TERM") == "dumb" {
 		return false
 	}
-	// Simple check - could be improved
-	return true
+	fi, err := os.Stdout.Stat()
+	if err != nil {
+		return false
+	}
+	return (fi.Mode() & os.ModeCharDevice) != 0
 }
 
-// colorize applies color to text if terminal supports it
+// colorize wraps text in ANSI color codes when color output is enabled.
 func colorize(color, text string) string {
-	if !isTerminal() {
+	if !colorEnabled() {
 		return text
 	}
-	return color + text + Reset
+	return color + text + colorReset
 }
 
-// Step represents a progress step
-type Step struct {
-	Name        string
-	Description string
-	Done        bool
+// step represents a single named progress step.
+type step struct {
+	name string
+	done bool
 }
 
-// ProgressTracker tracks and displays progress
+// ProgressTracker tracks and displays progress through a sequence of steps.
 type ProgressTracker struct {
-	Steps   []Step
-	Current int
+	steps   []step
+	current int
 }
 
-// NewProgressTracker creates a new progress tracker
+// NewProgressTracker creates a new ProgressTracker for the given step names.
 func NewProgressTracker(steps []string) *ProgressTracker {
-	var progSteps []Step
-	for _, step := range steps {
-		progSteps = append(progSteps, Step{Name: step, Done: false})
+	s := make([]step, len(steps))
+	for i, name := range steps {
+		s[i] = step{name: name}
 	}
-	return &ProgressTracker{Steps: progSteps, Current: 0}
+	return &ProgressTracker{steps: s}
 }
 
-// Start begins tracking progress
+// Start prints the initializing header when verbose mode is active.
 func (p *ProgressTracker) Start(config *Config) {
-	if !isTerminal() {
-		return
-	}
 	if config.Verbose {
-		fmt.Println(colorize(Bold+Cyan, "Initializing Go project..."))
+		fmt.Println(colorize(colorBold+colorCyan, "Initializing Go project..."))
 		fmt.Println()
 	}
 }
 
-// NextStep marks the current step as done and moves to the next
+// NextStep marks the current step as complete and advances the tracker.
 func (p *ProgressTracker) NextStep(config *Config) {
-	if p.Current < len(p.Steps) {
-		p.Steps[p.Current].Done = true
+	if p.current < len(p.steps) {
+		p.steps[p.current].done = true
 		if config.Verbose {
-			fmt.Printf("   %s %s\n", 
-				colorize(Green, "✓"), 
-				colorize(Gray, p.Steps[p.Current].Name))
+			fmt.Printf("   %s %s\n",
+				colorize(colorGreen, "✓"),
+				colorize(colorGray, p.steps[p.current].name))
 		}
-		p.Current++
+		p.current++
 	}
 }
 
-// Complete shows the final success message
+// Complete prints the final success message.
 func (p *ProgressTracker) Complete(config *Config) {
-	fmt.Printf("Project '%s' created at %s\n", 
-		colorize(Green+Bold, config.ProjectName), 
+	fmt.Printf("Project '%s' created at %s\n",
+		colorize(colorGreen+colorBold, config.ProjectName),
 		config.TargetDir)
 }
