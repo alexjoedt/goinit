@@ -1,77 +1,74 @@
 package main
 
 import (
-	"os"
-	"strings"
+	"bytes"
 	"testing"
 )
 
 func TestInfo(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
 	config := &Config{Verbose: true}
 
-	origStderr := os.Stderr
-	r, w, _ := os.Pipe()
-	os.Stderr = w
-	defer func() {
-		os.Stderr = origStderr
-	}()
+	info(&buf, config, "test message")
 
-	info(config, "test message")
-
-	w.Close()
-	buf := make([]byte, 1024)
-	n, _ := r.Read(buf)
-	output := string(buf[:n])
-
-	if !strings.Contains(output, "test message") {
-		t.Errorf("expected output to contain %q, got %q", "test message", output)
-	}
-	if !strings.Contains(output, "•") {
-		t.Errorf("expected output to contain %q, got %q", "•", output)
-	}
+	output := buf.String()
+	assertContains(t, output, "test message")
+	assertContains(t, output, "•")
 }
 
 func TestInfoVerboseOff(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
 	config := &Config{Verbose: false}
 
-	origStderr := os.Stderr
-	r, w, _ := os.Pipe()
-	os.Stderr = w
-	defer func() {
-		os.Stderr = origStderr
-	}()
+	info(&buf, config, "test message")
 
-	info(config, "test message")
-
-	w.Close()
-	buf := make([]byte, 1024)
-	n, _ := r.Read(buf)
-	output := string(buf[:n])
-
-	if output != "" {
-		t.Errorf("expected no output, got %q", output)
+	if buf.Len() != 0 {
+		t.Errorf("expected no output, got %q", buf.String())
 	}
 }
 
+func TestInfoNilConfig(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	info(&buf, nil, "should not print")
+
+	if buf.Len() != 0 {
+		t.Errorf("expected no output for nil config, got %q", buf.String())
+	}
+}
+
+func TestInfoFormatArgs(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	config := &Config{Verbose: true}
+
+	info(&buf, config, "hello %s %d", "world", 42)
+
+	assertContains(t, buf.String(), "hello world 42")
+}
+
 func TestWarn(t *testing.T) {
-	origStderr := os.Stderr
-	r, w, _ := os.Pipe()
-	os.Stderr = w
-	defer func() {
-		os.Stderr = origStderr
-	}()
+	t.Parallel()
 
-	warn("test warning")
+	var buf bytes.Buffer
+	warn(&buf, "test warning")
 
-	w.Close()
-	buf := make([]byte, 1024)
-	n, _ := r.Read(buf)
-	output := string(buf[:n])
+	output := buf.String()
+	assertContains(t, output, "Warning:")
+	assertContains(t, output, "test warning")
+}
 
-	if !strings.Contains(output, "Warning:") {
-		t.Errorf("expected output to contain %q, got %q", "Warning:", output)
-	}
-	if !strings.Contains(output, "test warning") {
-		t.Errorf("expected output to contain %q, got %q", "test warning", output)
-	}
+func TestWarnFormatArgs(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	warn(&buf, "issue %d: %s", 99, "something broke")
+
+	assertContains(t, buf.String(), "issue 99: something broke")
 }

@@ -55,14 +55,14 @@ OPTIONS:
 `
 
 // runInteractiveMode prompts the user for project configuration options.
-func runInteractiveMode(config *Config) error {
-	reader := bufio.NewReader(os.Stdin)
+func runInteractiveMode(config *Config, r io.Reader, w io.Writer) error {
+	reader := bufio.NewReader(r)
 
-	fmt.Println("Interactive Go Project Setup")
-	fmt.Println("============================")
+	fmt.Fprintln(w, "Interactive Go Project Setup")
+	fmt.Fprintln(w, "============================")
 
 	readLine := func(prompt string) (string, error) {
-		fmt.Print(prompt)
+		fmt.Fprint(w, prompt)
 		input, err := reader.ReadString('\n')
 		if err != nil && !errors.Is(err, io.EOF) {
 			return "", fmt.Errorf("reading input: %w", err)
@@ -111,7 +111,7 @@ func runInteractiveMode(config *Config) error {
 	}
 	config.Verbose = strings.ToLower(verbose) == "y"
 
-	fmt.Println()
+	fmt.Fprintln(w)
 	return nil
 }
 
@@ -154,8 +154,9 @@ func main() {
 
 	config.ProjectName = flag.Arg(0)
 
-	if err := run(config); err != nil {
-		fatal("%v", err)
+	if err := run(config, os.Stdout, os.Stderr); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
 	}
 }
 
@@ -165,8 +166,8 @@ var (
 	tplFiles embed.FS
 )
 
-// run creates the go project directory
-func run(config *Config) error {
+// run creates the go project directory.
+func run(config *Config, stdout, stderr io.Writer) error {
 	if !binExists("git") {
 		return errors.New("git not found in PATH; install from https://git-scm.com/downloads")
 	}
@@ -181,7 +182,7 @@ func run(config *Config) error {
 
 	// Handle interactive mode
 	if config.Interactive {
-		if err := runInteractiveMode(config); err != nil {
+		if err := runInteractiveMode(config, os.Stdin, stdout); err != nil {
 			return fmt.Errorf("interactive mode failed: %w", err)
 		}
 	}
@@ -236,10 +237,10 @@ Solutions:
 		steps = append(steps, "Creating Dockerfile")
 	}
 
-	progress := NewProgressTracker(steps)
+	progress := NewProgressTracker(steps, stdout)
 	progress.Start(config)
 
-	info(config, "Creating project in %s", config.TargetDir)
+	info(stderr, config, "Creating project in %s", config.TargetDir)
 
 	if err := os.MkdirAll(config.TargetDir, 0755); err != nil {
 		return fmt.Errorf("failed to create project directory '%s': %w", config.TargetDir, err)
@@ -247,7 +248,7 @@ Solutions:
 	progress.NextStep(config)
 
 	// Init Go Module
-	info(config, "Initializing Go module")
+	info(stderr, config, "Initializing Go module")
 	if err := initGoMod(config); err != nil {
 		return fmt.Errorf(`failed to initialize Go module: %w
 
@@ -258,7 +259,7 @@ Make sure Go is properly installed:
 	progress.NextStep(config)
 
 	// Init Git Repo
-	info(config, "Initializing Git repository")
+	info(stderr, config, "Initializing Git repository")
 	if err := initGitRepo(config); err != nil {
 		return fmt.Errorf(`failed to initialize Git repository: %w
 
@@ -269,21 +270,21 @@ Make sure Git is properly installed:
 	progress.NextStep(config)
 
 	// Create .gitignore
-	info(config, "Creating .gitignore")
+	info(stderr, config, "Creating .gitignore")
 	if err := createGitignore(config); err != nil {
 		return fmt.Errorf("failed to create .gitignore file: %w", err)
 	}
 	progress.NextStep(config)
 
 	// Create README.md
-	info(config, "Creating README.md")
+	info(stderr, config, "Creating README.md")
 	if err := createReadme(config); err != nil {
 		return fmt.Errorf("failed to create README.md file: %w", err)
 	}
 	progress.NextStep(config)
 
 	// Create main.go
-	info(config, "Creating main.go")
+	info(stderr, config, "Creating main.go")
 	if err := createMainDotGo(config); err != nil {
 		return fmt.Errorf("failed to create main.go file: %w", err)
 	}
@@ -291,12 +292,12 @@ Make sure Git is properly installed:
 
 	if config.WithTaskfile {
 		if !binExists("task") {
-			warn("Task binary not found. Install from: https://taskfile.dev/installation/")
+			warn(stderr, "Task binary not found. Install from: https://taskfile.dev/installation/")
 		}
 
-		info(config, "Creating Taskfile.yml")
+		info(stderr, config, "Creating Taskfile.yml")
 		if err := createTaskfile(config); err != nil {
-			warn("Failed to create Taskfile.yml: %v", err)
+			warn(stderr, "Failed to create Taskfile.yml: %v", err)
 		} else {
 			progress.NextStep(config)
 		}
@@ -304,12 +305,12 @@ Make sure Git is properly installed:
 
 	if config.WithMakefile {
 		if !binExists("make") {
-			warn("Make binary not found. Install build tools for your system.")
+			warn(stderr, "Make binary not found. Install build tools for your system.")
 		}
 
-		info(config, "Creating Makefile")
+		info(stderr, config, "Creating Makefile")
 		if err := createMakefile(config); err != nil {
-			warn("Failed to create Makefile: %v", err)
+			warn(stderr, "Failed to create Makefile: %v", err)
 		} else {
 			progress.NextStep(config)
 		}
@@ -317,12 +318,12 @@ Make sure Git is properly installed:
 
 	if config.WithDockerfile {
 		if !binExists("docker") {
-			warn("Docker binary not found. Install from: https://docs.docker.com/get-docker/")
+			warn(stderr, "Docker binary not found. Install from: https://docs.docker.com/get-docker/")
 		}
 
-		info(config, "Creating Dockerfile")
+		info(stderr, config, "Creating Dockerfile")
 		if err := createDockerfile(config); err != nil {
-			warn("Failed to create Dockerfile: %v", err)
+			warn(stderr, "Failed to create Dockerfile: %v", err)
 		} else {
 			progress.NextStep(config)
 		}

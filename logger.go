@@ -2,23 +2,17 @@ package main
 
 import (
 	"fmt"
-	"os"
+	"io"
 )
 
-// info prints informational messages only when verbose mode is enabled
-func info(config *Config, format string, args ...any) {
+// info prints informational messages only when verbose mode is enabled.
+func info(w io.Writer, config *Config, format string, args ...any) {
 	if config != nil && config.Verbose {
-		fmt.Fprintf(os.Stderr, "• "+format+"\n", args...)
+		fmt.Fprintf(w, "• "+format+"\n", args...)
 	}
 }
 
-// warn prints warning messages to stderr - always shown
-func warn(format string, args ...any) {
-	fmt.Fprintf(os.Stderr, "Warning: "+format+"\n", args...)
-}
-
-// fatal prints error message to stderr and exits with code 1
-func fatal(format string, args ...any) {
-	fmt.Fprintf(os.Stderr, "Error: "+format+"\n", args...)
-	os.Exit(1)
+// warn prints warning messages - always shown.
+func warn(w io.Writer, format string, args ...any) {
+	fmt.Fprintf(w, "Warning: "+format+"\n", args...)
 }

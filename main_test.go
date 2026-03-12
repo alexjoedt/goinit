@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -300,7 +302,7 @@ func TestRun_BasicProject(t *testing.T) {
 		WithDockerfile: false,
 	}
 
-	err = run(config)
+	err = run(config, io.Discard, io.Discard)
 	assertNoError(t, err)
 
 	assertFileExists(t, filepath.Join(config.TargetDir, "README.md"))
@@ -335,7 +337,7 @@ func TestRun_WithAllOptions(t *testing.T) {
 		WithDockerfile: true,
 	}
 
-	err = run(config)
+	err = run(config, io.Discard, io.Discard)
 	assertNoError(t, err)
 
 	assertFileExists(t, filepath.Join(config.TargetDir, "README.md"))
@@ -398,7 +400,7 @@ func TestRun_ErrorCases(t *testing.T) {
 				ProjectName: tt.projectName,
 			}
 
-			err = run(config)
+			err = run(config, io.Discard, io.Discard)
 			if tt.wantError {
 				assertError(t, err)
 			} else {
@@ -580,4 +582,116 @@ func randomName() string {
 		return "randfolder"
 	}
 	return hex.EncodeToString(b)
+}
+
+func TestRunInteractiveMode_HappyPath(t *testing.T) {
+	t.Parallel()
+
+	input := "my-project\ngithub.com/user/my-project\ny\ny\ny\nn\n"
+	var out bytes.Buffer
+	config := &Config{}
+
+	err := runInteractiveMode(config, strings.NewReader(input), &out)
+	assertNoError(t, err)
+
+	assertEqual(t, "my-project", config.ProjectName)
+	assertEqual(t, "github.com/user/my-project", config.ModuleName)
+	if !config.WithTaskfile {
+		t.Error("expected WithTaskfile to be true")
+	}
+	if !config.WithMakefile {
+		t.Error("expected WithMakefile to be true")
+	}
+	if !config.WithDockerfile {
+		t.Error("expected WithDockerfile to be true")
+	}
+	if config.Verbose {
+		t.Error("expected Verbose to be false")
+	}
+
+	assertContains(t, out.String(), "Interactive Go Project Setup")
+}
+
+func TestRunInteractiveMode_EmptyName(t *testing.T) {
+	t.Parallel()
+
+	input := "\n"
+	var out bytes.Buffer
+	config := &Config{}
+
+	err := runInteractiveMode(config, strings.NewReader(input), &out)
+	assertError(t, err)
+	assertContains(t, err.Error(), "project name is required")
+}
+
+func TestRunInteractiveMode_DefaultModule(t *testing.T) {
+	t.Parallel()
+
+	input := "my-tool\n\nn\nn\nn\nn\n"
+	var out bytes.Buffer
+	config := &Config{}
+
+	err := runInteractiveMode(config, strings.NewReader(input), &out)
+	assertNoError(t, err)
+
+	assertEqual(t, "my-tool", config.ProjectName)
+	assertEqual(t, "", config.ModuleName)
+}
+
+func TestRun_InvalidChars(t *testing.T) {
+	tests := []struct {
+		name        string
+		projectName string
+	}{
+		{"angle brackets", "my<project>"},
+		{"colon", "my:project"},
+		{"quotes", `my"project"`},
+		{"pipe", "my|project"},
+		{"question mark", "my?project"},
+		{"asterisk", "my*project"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testRootDir, cleanup := setupTestDir(t, "invalid_chars")
+			t.Cleanup(cleanup)
+
+			originalWd, err := os.Getwd()
+			requireNoError(t, err)
+			t.Cleanup(func() { _ = os.Chdir(originalWd) })
+			err = os.Chdir(testRootDir)
+			requireNoError(t, err)
+
+			config := &Config{ProjectName: tt.projectName}
+			err = run(config, io.Discard, io.Discard)
+			assertError(t, err)
+			assertContains(t, err.Error(), "invalid characters")
+		})
+	}
+}
+
+func TestRun_VerboseOutput(t *testing.T) {
+	testRootDir, cleanup := setupTestDir(t, "verbose_project")
+	t.Cleanup(cleanup)
+
+	originalWd, err := os.Getwd()
+	requireNoError(t, err)
+	t.Cleanup(func() { _ = os.Chdir(originalWd) })
+	err = os.Chdir(testRootDir)
+	requireNoError(t, err)
+
+	var stdout, stderr bytes.Buffer
+	config := &Config{
+		ProjectName: "verbose_project",
+		Verbose:     true,
+	}
+
+	err = run(config, &stdout, &stderr)
+	assertNoError(t, err)
+
+	// Progress output goes to stdout
+	assertContains(t, stdout.String(), "verbose_project")
+
+	// Info messages go to stderr
+	assertContains(t, stderr.String(), "Creating project in")
 }
