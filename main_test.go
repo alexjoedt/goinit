@@ -19,10 +19,8 @@ func setupTestDir(t *testing.T, projectName string) (string, func()) {
 
 	dir := filepath.Join("./test", randomName(), projectName)
 	err := os.MkdirAll(dir, 0755)
-	if err != nil {
-		t.FailNow()
-	}
-	
+	require.NoError(t, err)
+
 	cleanup := func() {
 		_ = os.RemoveAll(dir)
 	}
@@ -39,11 +37,7 @@ func TestInitGitRepo(t *testing.T) {
 		TargetDir:   dir,
 	}
 
-	// Create target directory first
-	err := os.MkdirAll(config.TargetDir, 0755)
-	require.NoError(t, err)
-
-	err = initGitRepo(config)
+	err := initGitRepo(config)
 	assert.NoError(t, err)
 	assert.DirExists(t, filepath.Join(config.TargetDir, ".git"))
 }
@@ -63,7 +57,7 @@ func TestInitGoMod(t *testing.T) {
 		},
 		{
 			name:        "custom module name",
-			projectName: "test-project", 
+			projectName: "test-project",
 			moduleName:  "github.com/alexjoedt/go-test",
 			wantModule:  "github.com/alexjoedt/go-test",
 		},
@@ -86,16 +80,12 @@ func TestInitGoMod(t *testing.T) {
 				TargetDir:   dir,
 			}
 
-			// Create target directory first
-			err := os.MkdirAll(config.TargetDir, 0755)
-			require.NoError(t, err)
-
-			err = initGoMod(config)
+			err := initGoMod(config)
 			assert.NoError(t, err)
-			
+
 			goModPath := filepath.Join(config.TargetDir, "go.mod")
 			assert.FileExists(t, goModPath)
-			
+
 			// Verify go.mod content
 			content, err := os.ReadFile(goModPath)
 			require.NoError(t, err)
@@ -113,16 +103,12 @@ func TestCreateMainDotGo(t *testing.T) {
 		TargetDir:   testDir,
 	}
 
-	// Create target directory first
-	err := os.MkdirAll(config.TargetDir, 0755)
-	require.NoError(t, err)
-
-	err = createMainDotGo(config)
+	err := createMainDotGo(config)
 	assert.NoError(t, err)
-	
+
 	mainGoPath := filepath.Join(config.TargetDir, "main.go")
 	assert.FileExists(t, mainGoPath)
-	
+
 	// Verify content
 	content, err := os.ReadFile(mainGoPath)
 	require.NoError(t, err)
@@ -138,16 +124,12 @@ func TestCreateGitIgnore(t *testing.T) {
 		TargetDir:   testDir,
 	}
 
-	// Create target directory first
-	err := os.MkdirAll(config.TargetDir, 0755)
-	require.NoError(t, err)
-
-	err = createGitignore(config)
+	err := createGitignore(config)
 	assert.NoError(t, err)
-	
+
 	gitignorePath := filepath.Join(config.TargetDir, ".gitignore")
 	assert.FileExists(t, gitignorePath)
-	
+
 	// Verify content includes essential entries
 	content, err := os.ReadFile(gitignorePath)
 	require.NoError(t, err)
@@ -166,16 +148,12 @@ func TestCreateReadme(t *testing.T) {
 		TargetDir:   testDir,
 	}
 
-	// Create target directory first
-	err := os.MkdirAll(config.TargetDir, 0755)
-	require.NoError(t, err)
-
-	err = createReadme(config)
+	err := createReadme(config)
 	assert.NoError(t, err)
-	
+
 	readmePath := filepath.Join(config.TargetDir, "README.md")
 	assert.FileExists(t, readmePath)
-	
+
 	// Verify content
 	content, err := os.ReadFile(readmePath)
 	require.NoError(t, err)
@@ -191,16 +169,12 @@ func TestCreateTaskfile(t *testing.T) {
 		TargetDir:   testDir,
 	}
 
-	// Create target directory first
-	err := os.MkdirAll(config.TargetDir, 0755)
-	require.NoError(t, err)
-
-	err = createTaskfile(config)
+	err := createTaskfile(config)
 	assert.NoError(t, err)
-	
+
 	taskfilePath := filepath.Join(config.TargetDir, "Taskfile.yml")
 	assert.FileExists(t, taskfilePath)
-	
+
 	// Verify content
 	content, err := os.ReadFile(taskfilePath)
 	require.NoError(t, err)
@@ -218,16 +192,12 @@ func TestCreateMakefile(t *testing.T) {
 		TargetDir:   testDir,
 	}
 
-	// Create target directory first
-	err := os.MkdirAll(config.TargetDir, 0755)
-	require.NoError(t, err)
-
-	err = createMakefile(config)
+	err := createMakefile(config)
 	assert.NoError(t, err)
-	
+
 	makefilePath := filepath.Join(config.TargetDir, "Makefile")
 	assert.FileExists(t, makefilePath)
-	
+
 	// Verify content
 	content, err := os.ReadFile(makefilePath)
 	require.NoError(t, err)
@@ -245,16 +215,12 @@ func TestCreateDockerfile(t *testing.T) {
 		TargetDir:   testDir,
 	}
 
-	// Create target directory first
-	err := os.MkdirAll(config.TargetDir, 0755)
-	require.NoError(t, err)
-
-	err = createDockerfile(config)
+	err := createDockerfile(config)
 	assert.NoError(t, err)
-	
+
 	dockerfilePath := filepath.Join(config.TargetDir, "Dockerfile")
 	assert.FileExists(t, dockerfilePath)
-	
+
 	// Verify content
 	content, err := os.ReadFile(dockerfilePath)
 	require.NoError(t, err)
@@ -270,7 +236,7 @@ func TestRun_BasicProject(t *testing.T) {
 	// Change to test root directory
 	originalWd, err := os.Getwd()
 	require.NoError(t, err)
-	t.Cleanup(func() { 
+	t.Cleanup(func() {
 		_ = os.Chdir(originalWd) // Ignore error in cleanup
 	})
 	err = os.Chdir(testRootDir)
@@ -294,7 +260,7 @@ func TestRun_BasicProject(t *testing.T) {
 	assert.FileExists(t, filepath.Join(config.TargetDir, "main.go"))
 	assert.FileExists(t, filepath.Join(config.TargetDir, ".gitignore"))
 	assert.DirExists(t, filepath.Join(config.TargetDir, ".git"))
-	
+
 	// Verify optional files are NOT created
 	assert.NoFileExists(t, filepath.Join(config.TargetDir, "Makefile"))
 	assert.NoFileExists(t, filepath.Join(config.TargetDir, "Taskfile.yml"))
@@ -302,13 +268,13 @@ func TestRun_BasicProject(t *testing.T) {
 }
 
 func TestRun_WithAllOptions(t *testing.T) {
-	testRootDir, cleanup := setupTestDir(t, "full_project") 
+	testRootDir, cleanup := setupTestDir(t, "full_project")
 	t.Cleanup(cleanup)
 
 	// Change to test root directory
 	originalWd, err := os.Getwd()
 	require.NoError(t, err)
-	t.Cleanup(func() { 
+	t.Cleanup(func() {
 		_ = os.Chdir(originalWd) // Ignore error in cleanup
 	})
 	err = os.Chdir(testRootDir)
@@ -414,7 +380,7 @@ func TestWriteStringToFile(t *testing.T) {
 	// Test file permissions
 	info, err := os.Stat(testFile)
 	require.NoError(t, err)
-	
+
 	// Check that file is readable and writable by owner
 	mode := info.Mode()
 	if runtime.GOOS != "windows" {
@@ -450,8 +416,14 @@ func TestBinExists(t *testing.T) {
 			expected: true,
 		},
 		{
-			name:     "existing command - ls/dir",
-			binName:  func() string { if runtime.GOOS == "windows" { return "dir" } else { return "ls" } }(),
+			name: "existing command - ls/dir",
+			binName: func() string {
+				if runtime.GOOS == "windows" {
+					return "dir"
+				} else {
+					return "ls"
+				}
+			}(),
 			expected: true,
 		},
 		{
@@ -482,10 +454,6 @@ func TestExecCommand(t *testing.T) {
 		ProjectName: "exec_test",
 		TargetDir:   testDir,
 	}
-
-	// Create target directory for command execution
-	err := os.MkdirAll(config.TargetDir, 0755)
-	require.NoError(t, err)
 
 	tests := []struct {
 		name      string
@@ -535,13 +503,9 @@ func TestFileCreation_ExistingFiles(t *testing.T) {
 		TargetDir:   testDir,
 	}
 
-	// Create target directory
-	err := os.MkdirAll(config.TargetDir, 0755)
-	require.NoError(t, err)
-
 	// Pre-create a README.md file
 	readmePath := filepath.Join(config.TargetDir, "README.md")
-	err = os.WriteFile(readmePath, []byte("existing content"), 0644)
+	err := os.WriteFile(readmePath, []byte("existing content"), 0644)
 	require.NoError(t, err)
 
 	// Attempt to create README - should fail because file exists
@@ -553,7 +517,6 @@ func TestFileCreation_ExistingFiles(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "existing content", string(content))
 }
-
 
 func TestRandomName(t *testing.T) {
 	var name string
