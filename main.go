@@ -7,23 +7,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"text/template"
 )
-
-func init() {
-	if !binExists("git") {
-		log.Fatal("git command not found in PATH. Please install Git: https://git-scm.com/downloads")
-	}
-
-	if !binExists("go") {
-		log.Fatal("go command not found in PATH. Please install Go: https://golang.org/doc/install")
-	}
-}
 
 var (
 	version = "unknown"
@@ -38,8 +28,6 @@ type Config struct {
 	WithTaskfile   bool
 	WithMakefile   bool
 	WithDockerfile bool
-	ShowVersion    bool
-	ShowHelp       bool
 	Interactive    bool
 }
 
@@ -66,64 +54,75 @@ OPTIONS:
         --version      Show version information
 `
 
-// runInteractiveMode prompts the user for project configuration options
+// runInteractiveMode prompts the user for project configuration options.
 func runInteractiveMode(config *Config) error {
 	reader := bufio.NewReader(os.Stdin)
-	
+
 	fmt.Println("Interactive Go Project Setup")
 	fmt.Println("============================")
-	
-	// Project name
-	fmt.Print("Project name: ")
-	if input, err := reader.ReadString('\n'); err == nil {
-		config.ProjectName = strings.TrimSpace(input)
+
+	readLine := func(prompt string) (string, error) {
+		fmt.Print(prompt)
+		input, err := reader.ReadString('\n')
+		if err != nil && !errors.Is(err, io.EOF) {
+			return "", fmt.Errorf("reading input: %w", err)
+		}
+		return strings.TrimSpace(input), nil
 	}
-	
+
+	name, err := readLine("Project name: ")
+	if err != nil {
+		return err
+	}
+	config.ProjectName = name
 	if config.ProjectName == "" {
 		return errors.New("project name is required")
 	}
-	
-	// Module name
-	fmt.Printf("Go module name (default: %s): ", config.ProjectName)
-	if input, err := reader.ReadString('\n'); err == nil {
-		input = strings.TrimSpace(input)
-		if input != "" {
-			config.ModuleName = input
-		}
+
+	module, err := readLine(fmt.Sprintf("Go module name (default: %s): ", config.ProjectName))
+	if err != nil {
+		return err
 	}
-	
-	// Ask about individual files
-	fmt.Print("Add Taskfile.yml? (y/N): ")
-	if input, err := reader.ReadString('\n'); err == nil {
-		config.WithTaskfile = strings.ToLower(strings.TrimSpace(input)) == "y"
+	if module != "" {
+		config.ModuleName = module
 	}
-	
-	fmt.Print("Add Makefile? (y/N): ")
-	if input, err := reader.ReadString('\n'); err == nil {
-		config.WithMakefile = strings.ToLower(strings.TrimSpace(input)) == "y"
+
+	taskfile, err := readLine("Add Taskfile.yml? (y/N): ")
+	if err != nil {
+		return err
 	}
-	
-	fmt.Print("Add Dockerfile? (y/N): ")
-	if input, err := reader.ReadString('\n'); err == nil {
-		config.WithDockerfile = strings.ToLower(strings.TrimSpace(input)) == "y"
+	config.WithTaskfile = strings.ToLower(taskfile) == "y"
+
+	makefile, err := readLine("Add Makefile? (y/N): ")
+	if err != nil {
+		return err
 	}
-	
-	fmt.Print("Verbose output? (y/N): ")
-	if input, err := reader.ReadString('\n'); err == nil {
-		config.Verbose = strings.ToLower(strings.TrimSpace(input)) == "y"
+	config.WithMakefile = strings.ToLower(makefile) == "y"
+
+	dockerfile, err := readLine("Add Dockerfile? (y/N): ")
+	if err != nil {
+		return err
 	}
-	
+	config.WithDockerfile = strings.ToLower(dockerfile) == "y"
+
+	verbose, err := readLine("Verbose output? (y/N): ")
+	if err != nil {
+		return err
+	}
+	config.Verbose = strings.ToLower(verbose) == "y"
+
 	fmt.Println()
 	return nil
 }
 
 func main() {
 	config := &Config{}
+	var showHelp, showVersion bool
 
 	// Help and version flags
-	flag.BoolVar(&config.ShowHelp, "help", false, "Show help message")
-	flag.BoolVar(&config.ShowHelp, "h", false, "Show help message")
-	flag.BoolVar(&config.ShowVersion, "version", false, "Show version information")
+	flag.BoolVar(&showHelp, "help", false, "Show help message")
+	flag.BoolVar(&showHelp, "h", false, "Show help message")
+	flag.BoolVar(&showVersion, "version", false, "Show version information")
 
 	// General options
 	flag.BoolVar(&config.Verbose, "verbose", false, "Show detailed output")
@@ -143,12 +142,12 @@ func main() {
 	flag.Usage = func() { fmt.Print(usage) }
 	flag.Parse()
 
-	if config.ShowHelp {
+	if showHelp {
 		flag.Usage()
 		os.Exit(0)
 	}
 
-	if config.ShowVersion {
+	if showVersion {
 		fmt.Printf("goinit version %s\n", version)
 		os.Exit(0)
 	}
@@ -168,6 +167,13 @@ var (
 
 // run creates the go project directory
 func run(config *Config) error {
+	if !binExists("git") {
+		return errors.New("git not found in PATH; install from https://git-scm.com/downloads")
+	}
+	if !binExists("go") {
+		return errors.New("go not found in PATH; install from https://golang.org/doc/install")
+	}
+
 	wd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current working directory: %w", err)
@@ -180,7 +186,8 @@ func run(config *Config) error {
 		}
 	}
 
-	// Better validation with helpful suggestions
+	// Normalize and validate project name.
+	config.ProjectName = strings.TrimSpace(config.ProjectName)
 	if config.ProjectName == "" {
 		return errors.New(`Project name is required.
 
@@ -192,13 +199,8 @@ Examples:
 Use 'goinit --help' for more information.`)
 	}
 
-	// Validate project name
-	if strings.TrimSpace(config.ProjectName) == "" {
-		return errors.New("Project name cannot be empty or just whitespace")
-	}
-
 	config.ProjectName = filepath.Base(config.ProjectName)
-	
+
 	// Check for invalid characters in project name
 	if strings.ContainsAny(config.ProjectName, `<>:"/\|?*`) {
 		return fmt.Errorf("Project name '%s' contains invalid characters. Use only letters, numbers, hyphens, and underscores", config.ProjectName)
@@ -218,12 +220,12 @@ Solutions:
 	steps := []string{
 		"Creating project directory",
 		"Initializing Go module",
-		"Initializing Git repository", 
+		"Initializing Git repository",
 		"Creating .gitignore",
 		"Creating README.md",
 		"Creating main.go",
 	}
-	
+
 	if config.WithTaskfile {
 		steps = append(steps, "Creating Taskfile.yml")
 	}
@@ -342,180 +344,70 @@ func initGoMod(config *Config) error {
 	return execCommand(config, "go", "mod", "init", module)
 }
 
+// createFileFromTemplate reads the named embedded template, renders it with
+// config data, and writes the result to destName inside config.TargetDir.
+// An optional delimPair (left, right) overrides the default "{{" "}}" delimiters.
+func createFileFromTemplate(config *Config, templatePath, destName string, delimPair ...string) error {
+	raw, err := tplFiles.ReadFile(templatePath)
+	if err != nil {
+		return fmt.Errorf("read template %q: %w", templatePath, err)
+	}
+
+	t := template.New(destName)
+	if len(delimPair) == 2 {
+		t = t.Delims(delimPair[0], delimPair[1])
+	}
+	t, err = t.Parse(string(raw))
+	if err != nil {
+		return fmt.Errorf("parse template %q: %w", templatePath, err)
+	}
+
+	var buf bytes.Buffer
+	if err = t.Execute(&buf, struct{ ProjectName string }{config.ProjectName}); err != nil {
+		return fmt.Errorf("execute template %q: %w", templatePath, err)
+	}
+
+	dest := filepath.Join(config.TargetDir, destName)
+	if _, err = os.Stat(dest); !os.IsNotExist(err) {
+		return fmt.Errorf("%q already exists", dest)
+	}
+	return writeStringToFile(dest, buf.String())
+}
+
 func createTaskfile(config *Config) error {
-	tf, err := tplFiles.ReadFile("templates/Taskfile.yml")
-	if err != nil {
-		return fmt.Errorf("failed to read Taskfile.yml template: %w", err)
-	}
-
-	tpl, err := template.New("taskfile").Delims("[[", "]]").Parse(string(tf))
-	if err != nil {
-		return fmt.Errorf("failed to parse Taskfile.yml template: %w", err)
-	}
-
-	buf := &bytes.Buffer{}
-	err = tpl.Execute(buf, struct{ ProjectName string }{config.ProjectName})
-	if err != nil {
-		return fmt.Errorf("failed to execute Taskfile.yml template: %w", err)
-	}
-
-	taskfilePath := filepath.Join(config.TargetDir, "Taskfile.yml")
-	if _, err = os.Stat(taskfilePath); !os.IsNotExist(err) {
-		return fmt.Errorf("taskfile.yml already exists at '%s'", taskfilePath)
-	}
-
-	if err := writeStringToFile(taskfilePath, buf.String()); err != nil {
-		return fmt.Errorf("failed to write Taskfile.yml: %w", err)
-	}
-
-	return nil
+	return createFileFromTemplate(config, "templates/Taskfile.yml", "Taskfile.yml", "[[", "]]")
 }
 
 func createDockerfile(config *Config) error {
-	df, err := tplFiles.ReadFile("templates/Dockerfile")
-	if err != nil {
-		return fmt.Errorf("failed to read Dockerfile template: %w", err)
-	}
-
-	tpl, err := template.New("dockerfile").Parse(string(df))
-	if err != nil {
-		return fmt.Errorf("failed to parse Dockerfile template: %w", err)
-	}
-
-	buf := &bytes.Buffer{}
-	err = tpl.Execute(buf, struct{ ProjectName string }{config.ProjectName})
-	if err != nil {
-		return fmt.Errorf("failed to execute Dockerfile template: %w", err)
-	}
-
-	dockerfilePath := filepath.Join(config.TargetDir, "Dockerfile")
-	if _, err = os.Stat(dockerfilePath); !os.IsNotExist(err) {
-		return fmt.Errorf("dockerfile already exists at '%s'", dockerfilePath)
-	}
-
-	if err := writeStringToFile(dockerfilePath, buf.String()); err != nil {
-		return fmt.Errorf("failed to write Dockerfile: %w", err)
-	}
-
-	return nil
+	return createFileFromTemplate(config, "templates/Dockerfile", "Dockerfile")
 }
 
 func createMakefile(config *Config) error {
-	mf, err := tplFiles.ReadFile("templates/Makefile")
-	if err != nil {
-		return fmt.Errorf("failed to read Makefile template: %w", err)
-	}
-
-	t, err := template.New("makefile").Parse(string(mf))
-	if err != nil {
-		return fmt.Errorf("failed to parse Makefile template: %w", err)
-	}
-
-	buf := &bytes.Buffer{}
-	err = t.Execute(buf, struct{ ProjectName string }{config.ProjectName})
-	if err != nil {
-		return fmt.Errorf("failed to execute Makefile template: %w", err)
-	}
-
-	makefilePath := filepath.Join(config.TargetDir, "Makefile")
-	if _, err = os.Stat(makefilePath); !os.IsNotExist(err) {
-		return fmt.Errorf("makefile already exists at '%s'", makefilePath)
-	}
-
-	if err := writeStringToFile(makefilePath, buf.String()); err != nil {
-		return fmt.Errorf("failed to write Makefile: %w", err)
-	}
-
-	return nil
+	return createFileFromTemplate(config, "templates/Makefile", "Makefile")
 }
 
 func createReadme(config *Config) error {
-	rd, err := tplFiles.ReadFile("templates/README.md")
-	if err != nil {
-		return fmt.Errorf("failed to read README.md template: %w", err)
-	}
-
-	t, err := template.New("readme").Parse(string(rd))
-	if err != nil {
-		return fmt.Errorf("failed to parse README.md template: %w", err)
-	}
-
-	buf := &bytes.Buffer{}
-	err = t.Execute(buf, struct{ ProjectName string }{config.ProjectName})
-	if err != nil {
-		return fmt.Errorf("failed to execute README.md template: %w", err)
-	}
-
-	readmePath := filepath.Join(config.TargetDir, "README.md")
-	if _, err = os.Stat(readmePath); !os.IsNotExist(err) {
-		return fmt.Errorf("README.md already exists at '%s'", readmePath)
-	}
-
-	if err := writeStringToFile(readmePath, buf.String()); err != nil {
-		return fmt.Errorf("failed to write README.md: %w", err)
-	}
-
-	return nil
+	return createFileFromTemplate(config, "templates/README.md", "README.md")
 }
 
 func createGitignore(config *Config) error {
-	gi, err := tplFiles.ReadFile("templates/gitignore")
-	if err != nil {
-		return fmt.Errorf("failed to read gitignore template: %w", err)
-	}
-
-	gitignorePath := filepath.Join(config.TargetDir, ".gitignore")
-	if _, err := os.Stat(gitignorePath); !os.IsNotExist(err) {
-		return fmt.Errorf(".gitignore already exists at '%s'", gitignorePath)
-	}
-
-	if err := writeStringToFile(gitignorePath, string(gi)); err != nil {
-		return fmt.Errorf("failed to write .gitignore: %w", err)
-	}
-
-	return nil
+	return createFileFromTemplate(config, "templates/gitignore", ".gitignore")
 }
 
 func createMainDotGo(config *Config) error {
-	mg, err := tplFiles.ReadFile("templates/main.go")
-	if err != nil {
-		return fmt.Errorf("failed to read main.go template: %w", err)
-	}
-
-	t, err := template.New("main.go").Parse(string(mg))
-	if err != nil {
-		return fmt.Errorf("failed to parse main.go template: %w", err)
-	}
-
-	buf := new(bytes.Buffer)
-	err = t.Execute(buf, struct{ ProjectName string }{config.ProjectName})
-	if err != nil {
-		return fmt.Errorf("failed to execute main.go template: %w", err)
-	}
-
-	mainPath := filepath.Join(config.TargetDir, "main.go")
-	if _, err = os.Stat(mainPath); !os.IsNotExist(err) {
-		return fmt.Errorf("main.go already exists at '%s'", mainPath)
-	}
-
-	if err := writeStringToFile(mainPath, buf.String()); err != nil {
-		return fmt.Errorf("failed to write main.go: %w", err)
-	}
-
-	return nil
+	return createFileFromTemplate(config, "templates/main.go", "main.go")
 }
 
 func execCommand(config *Config, cmd string, args ...string) error {
 	c := exec.Command(cmd, args...)
 	c.Dir = config.TargetDir
-	
-	if output, err := c.CombinedOutput(); err != nil {
+	output, err := c.CombinedOutput()
+	if err != nil {
 		if len(output) > 0 {
-			return fmt.Errorf("command '%s %v' failed: %s", cmd, args, string(output))
+			return fmt.Errorf("command %q failed: %s: %w", cmd+" "+strings.Join(args, " "), bytes.TrimSpace(output), err)
 		}
-		return fmt.Errorf("command '%s %v' failed: %w", cmd, args, err)
+		return fmt.Errorf("command %q failed: %w", cmd+" "+strings.Join(args, " "), err)
 	}
-	
 	return nil
 }
 
@@ -524,18 +416,9 @@ func binExists(name string) bool {
 	return err == nil
 }
 
-func writeStringToFile(path string, content string) error {
-	f, err := os.Create(path)
-	if err != nil {
-		return fmt.Errorf("failed to create file '%s': %w", path, err)
-	}
-	
-	defer func() {
-		_ = f.Close()
-	}()
-
-	if _, err = f.WriteString(content); err != nil {
-		return fmt.Errorf("failed to write content to file '%s': %w", path, err)
+func writeStringToFile(path, content string) error {
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		return fmt.Errorf("failed to write file %q: %w", path, err)
 	}
 	return nil
 }
