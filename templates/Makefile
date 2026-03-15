@@ -21,8 +21,8 @@ audit:
 .PHONY: build
 build:
 	go mod verify
-	go build -ldflags='-s' -o=./bin/{{.ProjectName}} .
-	GOOS=linux GOARCH=amd64 go build -ldflags='-s' -o=./bin/linux_amd64/{{.ProjectName}} .
+	go build -ldflags='-s' -o=./bin/{{.ProjectName}} {{.BuildPath}}
+	GOOS=linux GOARCH=amd64 go build -ldflags='-s' -o=./bin/linux_amd64/{{.ProjectName}} {{.BuildPath}}
 	
 ## run: run the {{.ProjectName}} application
 .PHONY: run

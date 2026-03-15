@@ -29,6 +29,21 @@ type Config struct {
 	WithMakefile   bool
 	WithDockerfile bool
 	Interactive    bool
+	StandardLayout bool
+}
+
+// templateData is the data passed to embedded file templates when rendering.
+type templateData struct {
+	ProjectName string
+	BuildPath   string
+}
+
+func (c *Config) tmplData() templateData {
+	bp := "."
+	if c.StandardLayout {
+		bp = "./cmd/" + c.ProjectName
+	}
+	return templateData{ProjectName: c.ProjectName, BuildPath: bp}
 }
 
 const usage = `goinit - A simple Go project initializer
@@ -47,6 +62,7 @@ OPTIONS:
     -t, --taskfile     Add Taskfile.yml for task automation
     -m, --makefile     Add Makefile for build automation
     -d, --dockerfile   Add Dockerfile for containerization
+    -s, --standard     Use cmd/<name>/main.go + internal/ layout
         --module <name>    Custom Go module name (default: project-name)
     -i, --interactive  Interactive mode - prompts for all options
     -v, --verbose      Show detailed output
@@ -105,6 +121,12 @@ func runInteractiveMode(config *Config, r io.Reader, w io.Writer) error {
 	}
 	config.WithDockerfile = strings.ToLower(dockerfile) == "y"
 
+	standard, err := readLine("Use standard layout (cmd/<name>/main.go + internal/)? (y/N): ")
+	if err != nil {
+		return err
+	}
+	config.StandardLayout = strings.ToLower(standard) == "y"
+
 	verbose, err := readLine("Verbose output? (y/N): ")
 	if err != nil {
 		return err
@@ -138,6 +160,8 @@ func main() {
 	flag.BoolVar(&config.WithMakefile, "m", false, "Add Makefile")
 	flag.BoolVar(&config.WithDockerfile, "dockerfile", false, "Add Dockerfile")
 	flag.BoolVar(&config.WithDockerfile, "d", false, "Add Dockerfile")
+	flag.BoolVar(&config.StandardLayout, "standard", false, "Use cmd/<name>/main.go + internal/ layout")
+	flag.BoolVar(&config.StandardLayout, "s", false, "Use cmd/<name>/main.go + internal/ layout")
 
 	flag.Usage = func() { fmt.Print(usage) }
 	flag.Parse()
@@ -224,7 +248,12 @@ Solutions:
 		"Initializing Git repository",
 		"Creating .gitignore",
 		"Creating README.md",
-		"Creating main.go",
+	}
+	if config.StandardLayout {
+		steps = append(steps, fmt.Sprintf("Creating cmd/%s/main.go", config.ProjectName))
+		steps = append(steps, "Creating internal/")
+	} else {
+		steps = append(steps, "Creating main.go")
 	}
 
 	if config.WithTaskfile {
@@ -283,12 +312,34 @@ Make sure Git is properly installed:
 	}
 	progress.NextStep(config)
 
-	// Create main.go
-	info(stderr, config, "Creating main.go")
-	if err := createMainDotGo(config); err != nil {
-		return fmt.Errorf("failed to create main.go file: %w", err)
+	// Create main.go or cmd/<name>/main.go + internal/
+	if config.StandardLayout {
+		cmdDir := filepath.Join(config.TargetDir, "cmd", config.ProjectName)
+		info(stderr, config, "Creating cmd/%s/main.go", config.ProjectName)
+		if err := os.MkdirAll(cmdDir, 0755); err != nil {
+			return fmt.Errorf("failed to create cmd directory: %w", err)
+		}
+		if err := createCmdMainDotGo(config); err != nil {
+			return fmt.Errorf("failed to create cmd/%s/main.go: %w", config.ProjectName, err)
+		}
+		progress.NextStep(config)
+
+		info(stderr, config, "Creating internal/")
+		internalDir := filepath.Join(config.TargetDir, "internal")
+		if err := os.MkdirAll(internalDir, 0755); err != nil {
+			return fmt.Errorf("failed to create internal directory: %w", err)
+		}
+		if err := writeStringToFile(filepath.Join(internalDir, ".gitkeep"), ""); err != nil {
+			return fmt.Errorf("failed to create internal/.gitkeep: %w", err)
+		}
+		progress.NextStep(config)
+	} else {
+		info(stderr, config, "Creating main.go")
+		if err := createMainDotGo(config); err != nil {
+			return fmt.Errorf("failed to create main.go file: %w", err)
+		}
+		progress.NextStep(config)
 	}
-	progress.NextStep(config)
 
 	if config.WithTaskfile {
 		if !binExists("task") {
@@ -364,7 +415,7 @@ func createFileFromTemplate(config *Config, templatePath, destName string, delim
 	}
 
 	var buf bytes.Buffer
-	if err = t.Execute(&buf, struct{ ProjectName string }{config.ProjectName}); err != nil {
+	if err = t.Execute(&buf, config.tmplData()); err != nil {
 		return fmt.Errorf("execute template %q: %w", templatePath, err)
 	}
 
@@ -397,6 +448,11 @@ func createGitignore(config *Config) error {
 
 func createMainDotGo(config *Config) error {
 	return createFileFromTemplate(config, "templates/main.go", "main.go")
+}
+
+func createCmdMainDotGo(config *Config) error {
+	destPath := filepath.Join("cmd", config.ProjectName, "main.go")
+	return createFileFromTemplate(config, "templates/main.go", destPath)
 }
 
 func execCommand(config *Config, cmd string, args ...string) error {

@@ -17,7 +17,7 @@ tasks:
   build:
     cmds:
       - go mod verify
-      - go build -o bin/{{.BINARY}} .
+      - go build -o bin/{{.BINARY}} [[.BuildPath]]
 
   run:
     cmds:

@@ -88,4 +88,8 @@ func (p *ProgressTracker) Complete(config *Config) {
 	_, _ = fmt.Fprintf(p.w, "Project '%s' created at %s\n",
 		colorize(colorGreen+colorBold, config.ProjectName),
 		config.TargetDir)
+	if config.StandardLayout {
+		_, _ = fmt.Fprintf(p.w, "%s\n", colorize(colorGray, "  cmd/"+config.ProjectName+"/main.go"))
+		_, _ = fmt.Fprintf(p.w, "%s\n", colorize(colorGray, "  internal/"))
+	}
 }
